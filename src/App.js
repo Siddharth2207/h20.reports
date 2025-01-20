@@ -4,7 +4,7 @@ import RechartsDashboard from "./components/RechartsDashboard";
 import RaindexVisualization from "./components/RaindexVisualization";
 import './tailwind.css';
 
-import logoIcon from './assets/raindex-logo.png';
+import logoIcon from './assets/h20-logo.png';
 
 const Header = () => (
   <header className="p-4 bg-white border-b border-gray-300">
@@ -22,7 +22,7 @@ const Header = () => (
               to="/"
               className="text-indigo-600 font-semibold text-lg no-underline"
             >
-              Raindex Visualization
+              OrderBook Visualization
             </Link>
           </li>
           <li>

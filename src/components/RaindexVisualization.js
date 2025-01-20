@@ -22,7 +22,7 @@ import {
   qualifyNamespace,
   getContext
 } from './contants';
-import raindexTextLogo from "../assets/raindex.png";
+import h20Logo from "../assets/h20-logo.png";
 
 SciChartSurface.loadWasmFromCDN();
 
@@ -433,7 +433,7 @@ const RaindexVisualization = () => {
       <div className="w-full max-w-6xl mx-auto p-5 font-sans bg-gray-100 border border-gray-300 rounded-lg shadow-lg">
         <div className="flex items-center justify-center gap-4 mb-5">
           {/* Logo */}
-          <img src={raindexTextLogo} alt="Raindex Logo" className="w-20 h-auto" />
+          <img src={h20Logo} alt="Raindex Logo" className="w-20 h-auto" />
           <h2 className="text-2xl font-bold text-gray-800">Market Depth Chart</h2>
         </div>
         {/* Input Selectors */}

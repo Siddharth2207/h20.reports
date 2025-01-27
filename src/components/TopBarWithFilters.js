@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
-
 const TopBarWithFilters = ({ onApplyFilters, tokenOptions }) => {
   const [customRange, setCustomRange] = useState({ from: null, to: null });
   const [selectedToken, setSelectedToken] = useState(tokenOptions[0]);
@@ -30,7 +29,10 @@ const TopBarWithFilters = ({ onApplyFilters, tokenOptions }) => {
           <DatePicker
             selected={customRange.from}
             onChange={(date) => handleDateChange("from", date)}
-            dateFormat="yyyy-MM-dd"
+            showTimeSelect
+            timeFormat="HH:mm:ss"
+            timeIntervals={1}
+            dateFormat="yyyy-MM-dd HH:mm:ss"
             className="bg-gray-700 text-white p-2 rounded text-sm"
           />
         </div>
@@ -39,7 +41,10 @@ const TopBarWithFilters = ({ onApplyFilters, tokenOptions }) => {
           <DatePicker
             selected={customRange.to}
             onChange={(date) => handleDateChange("to", date)}
-            dateFormat="yyyy-MM-dd"
+            showTimeSelect
+            timeFormat="HH:mm:ss"
+            timeIntervals={1}
+            dateFormat="yyyy-MM-dd HH:mm:ss"
             className="bg-gray-700 text-white p-2 rounded text-sm"
           />
         </div>

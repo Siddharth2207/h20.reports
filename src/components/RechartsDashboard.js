@@ -301,7 +301,7 @@ const RechartsDashboard = () => {
       
       let totalOrderTrades,totalTokenVolForDurationUsd,totalTradesForDuration,totalRaindexTrades,totalRaindexTradesAllTimeForToken,aggregatedResultsForToken,volumeDistributionForToken
       
-      for(let i = 0; i < 1; i++){
+      for(let i = 0; i < 3; i++){
           const {
             totalTokenExternalVolForDurationUsd,
             totalTokenExternalTradesForDuration,

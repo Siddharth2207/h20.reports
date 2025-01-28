@@ -22,7 +22,7 @@ const Header = () => (
               to="/"
               className="text-indigo-600 font-semibold text-lg no-underline"
             >
-              OrderBook Visualization
+              OrderBook
             </Link>
           </li>
           <li>

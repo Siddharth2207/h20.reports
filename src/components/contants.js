@@ -13,8 +13,8 @@ export const config = {
     flare: { rpc: 'https://rpc.ankr.com/flare', chainId: 14, currency: 'FLR' },
     base: { rpc: 'https://mainnet.base.org', chainId: 8453, currency: 'ETH' },
     sepolia: { rpc: 'https://1rpc.io/sepolia', chainId: 11155111, currency: 'ETH' },
-    polygon: { rpc: 'https://rpc.ankr.com/polygon', chainId: 137, currency: 'POL' },
-    arbitrum: { rpc: 'https://rpc.ankr.com/arbitrum', chainId: 42161, currency: 'ETH' },
+    polygon: { rpc: 'https://polygon-mainnet.g.alchemy.com/v2/zv_qezhqKEtY-ZRKRUbDHD2VqlPYASBK', chainId: 137, currency: 'POL' },
+    arbitrum: { rpc: 'https://arb-mainnet.g.alchemy.com/v2/zv_qezhqKEtY-ZRKRUbDHD2VqlPYASBK', chainId: 42161, currency: 'ETH' },
     bsc: { rpc: 'https://rpc.ankr.com/bsc', chainId: 56, currency: 'BNB' },
     mainnet: { rpc: 'https://rpc.ankr.com/eth', chainId: 1, currency: 'ETH' },
   },
@@ -35,12 +35,6 @@ export const baseTokenConfig = {
     network: 'arbitrum',
     address: '0x94fcd9c18f99538c0f7c61c5500ca79f0d5c4dab'
   },
-  ARBITRUM_USDT: {
-    symbol: 'USDT',
-    decimals: 6,
-    network: 'arbitrum',
-    address: '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9'
-  },
   IOEN: {
     symbol: 'IOEN',
     decimals: 18,
@@ -52,18 +46,6 @@ export const baseTokenConfig = {
     decimals: 18,
     network: 'polygon',
     address: '0x84342e932797fc62814189f01f0fb05f52519708'
-  },
-  POLYGON_USDT: {
-    symbol: 'USDT',
-    network: 'polygon',
-    decimals: 6,
-    address: '0xc2132d05d31c914a87c6611c10748aeb04b58e8f'
-  },
-  POLYGON_USDC: {
-    symbol: 'USDC',
-    network: 'polygon',
-    decimals: 18,
-    address: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359'
   },
   MNW: {
     symbol: 'MNW',
@@ -83,12 +65,7 @@ export const baseTokenConfig = {
     decimals: 18,
     address: '0xb5c064f955d8e7f38fe0460c556a72987494ee17'
   },
-  FLARE_cUSDX: {
-    symbol: 'cUSDX',
-    network: 'flare',
-    decimals: 6,
-    address: '0xfe2907dfa8db6e320cdbf45f0aa888f6135ec4f8'
-  },
+
   QUICK_NEW: {
     symbol: 'QUICK',
     network: 'polygon',
@@ -119,12 +96,6 @@ export const baseTokenConfig = {
     decimals: 18,
     address: '0x99b2b1a2adb02b38222adcd057783d7e5d1fcc7d'
   },
-  WFLR: {
-    symbol: 'WFLR',
-    network: 'flare',
-    decimals: 18,
-    address: '0x1d80c49bbbcd1c0911346656b529df9e5c2f783d'
-  },
   sFLR: {
     symbol: 'sFLR',
     network: 'flare',
@@ -154,45 +125,33 @@ export const baseTokenConfig = {
     network: 'arbitrum',
     decimals: 18,
     address: '0x16A500Aec6c37F84447ef04E66c57cfC6254cF92'
-  },
-  POLYGON_WETH: {
-    symbol: 'WETH',
-    network: 'polygon',
-    decimals: 18,
-    address: '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619'
-  },
-  BASE_WETH: {
-    symbol: 'WETH',
-    network: 'base',
-    decimals: 18,
-    address: '0x4200000000000000000000000000000000000006'
+  }
+};
+
+export const quoteTokenConfig = {
+  FLARE_CUSDX: {
+    symbol: 'cUSDX',
+    network: 'flare',
+    decimals: 6,
+    address: '0xfe2907dfa8db6e320cdbf45f0aa888f6135ec4f8'
   },
   FLARE_USDCe: {
     symbol: 'USDC.e',
     network: 'flare',
     decimals: 6,
     address: '0xfbda5f676cb37624f28265a144a48b0d6e87d3b6'
-  }
-};
-
-export const quoteTokenConfig = {
-  KIMA: {
-    symbol: 'KIMA',
+  },
+  FLARE_WFLR: {
+    symbol: 'WFLR',
+    network: 'flare',
     decimals: 18,
-    network: 'arbitrum',
-    address: '0x94fcd9c18f99538c0f7c61c5500ca79f0d5c4dab'
+    address: '0x1d80c49bbbcd1c0911346656b529df9e5c2f783d'
   },
   ARBITRUM_USDT: {
     symbol: 'USDT',
     decimals: 6,
     network: 'arbitrum',
     address: '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9'
-  },
-  NHT: {
-    symbol: 'NHT',
-    decimals: 18,
-    network: 'polygon',
-    address: '0x84342e932797fc62814189f01f0fb05f52519708'
   },
   POLYGON_USDT: {
     symbol: 'USDT',
@@ -203,38 +162,8 @@ export const quoteTokenConfig = {
   POLYGON_USDC: {
     symbol: 'USDC',
     network: 'polygon',
-    decimals: 18,
+    decimals: 6,
     address: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359'
-  },
-  WPOL: {
-    symbol: 'WPOL',
-    network: 'polygon',
-    decimals: 18,
-    address: '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270'
-  },
-  QUICK_OLD: {
-    symbol: 'QUICK',
-    network: 'polygon',
-    decimals: 18,
-    address: '0xb5c064f955d8e7f38fe0460c556a72987494ee17'
-  },
-  QUICK_NEW: {
-    symbol: 'QUICK',
-    network: 'polygon',
-    decimals: 18,
-    address: '0x831753dd7087cac61ab5644b308642cc1c33dc13'
-  },
-  MNW: {
-    symbol: 'MNW',
-    decimals: 18,
-    network: 'polygon',
-    address: '0x3c59798620e5fec0ae6df1a19c6454094572ab92'
-  },
-  POLYGON_WETH: {
-    symbol: 'WETH',
-    network: 'polygon',
-    decimals: 18,
-    address: '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619'
   },
   BSC_BUSD: {
     symbol: 'BUSD',
@@ -248,43 +177,30 @@ export const quoteTokenConfig = {
     decimals: 6,
     address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913'
   },
+  POLYGON_WPOL: {
+    symbol: 'WPOL',
+    network: 'polygon',
+    decimals: 18,
+    address: '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270'
+  },
   ETHEREUM_WETH: {
     symbol: 'WETH',
     network: 'mainnet',
     decimals: 18,
     address: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'
   },
-  cysFLR: {
-    symbol: 'cysFLR',
-    network: 'flare',
+  POLYGON_WETH: {
+    symbol: 'WETH',
+    network: 'polygon',
     decimals: 18,
-    address: '0x19831cfb53a0dbead9866c43557c1d48dff76567'
+    address: '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619'
   },
-  WFLR: {
-    symbol: 'WFLR',
-    network: 'flare',
+  BASE_WETH: {
+    symbol: 'WETH',
+    network: 'base',
     decimals: 18,
-    address: '0x1d80c49bbbcd1c0911346656b529df9e5c2f783d'
-  },
-  sFLR: {
-    symbol: 'sFLR',
-    network: 'flare',
-    decimals: 18,
-    address: '0x12e605bc104e93b45e1ad99f9e555f659051c2bb'
-  },
-  FLARE_cUSDX: {
-    symbol: 'cUSDX',
-    network: 'flare',
-    decimals: 6,
-    address: '0xfe2907dfa8db6e320cdbf45f0aa888f6135ec4f8'
-  },
-  FLARE_USDCe: {
-    symbol: 'USDC.e',
-    network: 'flare',
-    decimals: 6,
-    address: '0xfbda5f676cb37624f28265a144a48b0d6e87d3b6'
-  }
-  
+    address: '0x4200000000000000000000000000000000000006'
+  },  
 };
 
 export const orderbookAbi = [

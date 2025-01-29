@@ -8367,10 +8367,10 @@ raf@^3.4.1:
   dependencies:
     performance-now "^2.1.0"
 
-raindex-reports@^1.0.25:
-  version "1.0.25"
-  resolved "https://registry.yarnpkg.com/raindex-reports/-/raindex-reports-1.0.25.tgz#29c42d3d21cdaac4a0d31497758f3ffc573e2def"
-  integrity sha512-Uzpp5uM1hx7jsRqZO/XpOO6zzrcv8g7q1T4Ooq6R6Ohd1tA7JsmvUXRwjHOd9hVKLvLoagY+Tf8Umv+cZxjeiQ==
+raindex-reports@^1.0.27:
+  version "1.0.27"
+  resolved "https://registry.yarnpkg.com/raindex-reports/-/raindex-reports-1.0.27.tgz#7e74a41dcbfedddbbb67bd9cf965e8566fc7835d"
+  integrity sha512-ojMEWKJk8DFwhRmgxdSJbV/5yWgsCTrmhCOwd/pFoyLPHVWvos6A+M+c2ugVfxP0HOyETCtKFag2AlGeikth6A==
   dependencies:
     axios "^1.7.9"
     ethers "=5.7.0"

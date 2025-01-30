@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import RechartsDashboard from "./components/RechartsDashboard";
+import RaindexMarketData from "./components/RaindexMarketData";
 import RaindexVaults from "./components/RaindexVaults";
 import RaindexVisualization from "./components/RaindexVisualization";
 import './tailwind.css';
@@ -57,7 +57,7 @@ const App = () => {
           <Route path="/" element={<RaindexVisualization />} />
           <Route
             path="/market"
-            element={<RechartsDashboard />}
+            element={<RaindexMarketData />}
           />
           <Route
             path="/vaults"

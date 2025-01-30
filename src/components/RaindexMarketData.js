@@ -128,7 +128,7 @@ const prepareTradeAndVolumeStats = async (tradesAccordingToTimeStamp, orderTrade
 
 export { generateColorPalette, hslToHex, prepareTradeAndVolumeStats };
 
-const RechartsDashboard = () => {
+const RaindexMarketData = () => {
   const [initialized, setInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -676,4 +676,4 @@ const RechartsDashboard = () => {
   );
 };
 
-export default RechartsDashboard;
+export default RaindexMarketData;

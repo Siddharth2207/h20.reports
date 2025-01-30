@@ -10,7 +10,7 @@ import {
   import { analyzeLiquidity, fetchAndFilterOrders, getTradesByTimeStamp,orderMetrics,tokenMetrics, tokenConfig, networkConfig, fetchAllPaginatedData } from "raindex-reports"
   import TopBarWithFilters from "./TopBarWithFilters";
   import { PieChart, Pie, Cell } from 'recharts';
-  import {generateColorPalette } from './RechartsDashboard'
+  import {generateColorPalette } from './RaindexMarketData'
   import { ethers } from "ethers";
 
   

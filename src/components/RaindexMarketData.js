@@ -43,9 +43,92 @@ function hslToHex(h, s, l) {
   return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
 }
 
-export { generateColorPalette, hslToHex };
+const prepareTradeAndVolumeStats = async (tradesAccordingToTimeStamp, orderTrades) => {
 
-const RechartsDashboard = () => {
+  const raindexTransactionHashes = new Set(orderTrades.map((trade) => trade.transactionHash));
+
+  // Split into RaindexTrades and ExternalTrades
+  const raindexTrades = [];
+  const externalTrades = [];
+
+  for (const trade of tradesAccordingToTimeStamp) {
+    if (raindexTransactionHashes.has(trade.transactionHash)) {
+      raindexTrades.push(trade);
+    } else {
+      externalTrades.push(trade);
+    }
+  }
+
+  // Helper function to group trades by 24-hour periods
+  const groupTradesByDay = (trades) => {
+    const grouped = {};
+    trades.forEach((trade) => {
+      const dateKey = new Date(trade.timestamp * 1000).toISOString().split("T")[0]; // YYYY-MM-DD
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = { count: 0, volume: 0 };
+      }
+      grouped[dateKey].count += 1;
+      grouped[dateKey].volume += parseFloat(trade.amountInUsd || 0); // Ensure volume in USD is summed
+    });
+    return grouped;
+  };
+
+  // Group Raindex and External trades
+  const raindexGrouped = groupTradesByDay(raindexTrades);
+  const externalGrouped = groupTradesByDay(externalTrades);
+
+  const totalRaindexVolume = raindexTrades.reduce((sum, item) => sum + (item.amountInUsd || 0), 0)
+  const totalExternalVolume = externalTrades.reduce((sum, item) => sum + (item.amountInUsd || 0), 0)
+
+  // Merge grouped data into final structure
+  const tradeData = [[]];
+  const volumeData = [[]];
+  const allDates = Array.from(new Set([...Object.keys(raindexGrouped), ...Object.keys(externalGrouped)])).sort();
+
+  allDates.forEach((dateKey) => {
+    const raindexStats = raindexGrouped[dateKey] || { count: 0, volume: 0 };
+    const externalStats = externalGrouped[dateKey] || { count: 0, volume: 0 };
+
+    tradeData[0].push({
+      name: new Date(dateKey).toLocaleDateString("en-US", { day: "2-digit", month: "short" }),
+      Raindex: raindexStats.count,
+      External: externalStats.count,
+      total: raindexStats.count + externalStats.count,
+    });
+
+    volumeData[0].push({
+      name: new Date(dateKey).toLocaleDateString("en-US", { day: "2-digit", month: "short" }),
+      Raindex: parseFloat(raindexStats.volume.toFixed(2)),
+      External: parseFloat(externalStats.volume.toFixed(2)),
+      total: parseFloat((raindexStats.volume + externalStats.volume).toFixed(2)),
+    });
+  });
+
+  const tradeStats = [
+    { name: "Raindex" },
+    { name: "External" },
+  ];
+
+  const volumeStats = [
+    { name: "Raindex" },
+    { name: "External" },
+  ];
+
+  return {
+    tradeData,
+    tradeStats,
+    volumeData,
+    volumeStats,
+    totalRaindexTrades: raindexTrades.length,
+    totalExternalTrades: externalTrades.length,
+    totalRaindexVolume,
+    totalExternalVolume
+  }
+};
+
+export { generateColorPalette, hslToHex, prepareTradeAndVolumeStats };
+
+const RaindexMarketData = () => {
   const [initialized, setInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -138,89 +221,7 @@ const RechartsDashboard = () => {
     }
   }
 
-
-  const prepareTradeAndVolumeStats = async (tradesAccordingToTimeStamp, orderTrades) => {
-
-    const raindexTransactionHashes = new Set(orderTrades.map((trade) => trade.transactionHash));
-
-    // Split into RaindexTrades and ExternalTrades
-    const raindexTrades = [];
-    const externalTrades = [];
-
-    for (const trade of tradesAccordingToTimeStamp) {
-      if (raindexTransactionHashes.has(trade.transactionHash)) {
-        raindexTrades.push(trade);
-      } else {
-        externalTrades.push(trade);
-      }
-    }
-
-    // Helper function to group trades by 24-hour periods
-    const groupTradesByDay = (trades) => {
-      const grouped = {};
-      trades.forEach((trade) => {
-        const dateKey = new Date(trade.timestamp * 1000).toISOString().split("T")[0]; // YYYY-MM-DD
-        if (!grouped[dateKey]) {
-          grouped[dateKey] = { count: 0, volume: 0 };
-        }
-        grouped[dateKey].count += 1;
-        grouped[dateKey].volume += parseFloat(trade.amountInUsd || 0); // Ensure volume in USD is summed
-      });
-      return grouped;
-    };
-
-    // Group Raindex and External trades
-    const raindexGrouped = groupTradesByDay(raindexTrades);
-    const externalGrouped = groupTradesByDay(externalTrades);
-
-    const totalRaindexVolume = raindexTrades.reduce((sum, item) => sum + (item.amountInUsd || 0), 0)
-    const totalExternalVolume = externalTrades.reduce((sum, item) => sum + (item.amountInUsd || 0), 0)
-
-    // Merge grouped data into final structure
-    const tradeData = [[]];
-    const volumeData = [[]];
-    const allDates = Array.from(new Set([...Object.keys(raindexGrouped), ...Object.keys(externalGrouped)])).sort();
-
-    allDates.forEach((dateKey) => {
-      const raindexStats = raindexGrouped[dateKey] || { count: 0, volume: 0 };
-      const externalStats = externalGrouped[dateKey] || { count: 0, volume: 0 };
-
-      tradeData[0].push({
-        name: new Date(dateKey).toLocaleDateString("en-US", { day: "2-digit", month: "short" }),
-        Raindex: raindexStats.count,
-        External: externalStats.count,
-        total: raindexStats.count + externalStats.count,
-      });
-
-      volumeData[0].push({
-        name: new Date(dateKey).toLocaleDateString("en-US", { day: "2-digit", month: "short" }),
-        Raindex: parseFloat(raindexStats.volume.toFixed(2)),
-        External: parseFloat(externalStats.volume.toFixed(2)),
-        total: parseFloat((raindexStats.volume + externalStats.volume).toFixed(2)),
-      });
-    });
-
-    const tradeStats = [
-      { name: "Raindex" },
-      { name: "External" },
-    ];
-
-    const volumeStats = [
-      { name: "Raindex" },
-      { name: "External" },
-    ];
-
-    return {
-      tradeData,
-      tradeStats,
-      volumeData,
-      volumeStats,
-      totalRaindexTrades: raindexTrades.length,
-      totalExternalTrades: externalTrades.length,
-      totalRaindexVolume,
-      totalExternalVolume
-    }
-  };
+  
 
   const renderBarChart = (
     dataSets,
@@ -675,4 +676,4 @@ const RechartsDashboard = () => {
   );
 };
 
-export default RechartsDashboard;
+export default RaindexMarketData;

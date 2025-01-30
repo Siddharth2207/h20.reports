@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import RechartsDashboard from "./components/RechartsDashboard";
+import RaindexMarketData from "./components/RaindexMarketData";
+import RaindexVaults from "./components/RaindexVaults";
 import RaindexVisualization from "./components/RaindexVisualization";
 import './tailwind.css';
 
@@ -27,10 +28,18 @@ const Header = () => (
           </li>
           <li>
             <Link
-              to="/reports"
+              to="/market"
               className="text-indigo-600 font-semibold text-lg no-underline"
             >
-              Market Reports
+              Market Data
+            </Link>
+          </li>
+          <li>
+            <Link
+              to="/vaults"
+              className="text-indigo-600 font-semibold text-lg no-underline"
+            >
+              Raindex Vaults
             </Link>
           </li>
         </ul>
@@ -47,10 +56,15 @@ const App = () => {
         <Routes>
           <Route path="/" element={<RaindexVisualization />} />
           <Route
-            path="/reports"
-            element={<RechartsDashboard />}
+            path="/market"
+            element={<RaindexMarketData />}
+          />
+          <Route
+            path="/vaults"
+            element={<RaindexVaults />}
           />
         </Routes>
+        
       </main>
     </Router>
   );

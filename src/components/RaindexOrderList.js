@@ -1,7 +1,6 @@
 
   import React, { useState, useEffect } from "react";
   import { fetchAndFilterOrders,fetchTradesQuery, tokenConfig, networkConfig, fetchAllPaginatedData } from "raindex-reports"
-  import TopBarWithFilters from "./TopBarWithFilters";
   import { ethers } from "ethers";
 
   
@@ -10,19 +9,21 @@
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedToken, setSelectedToken] = useState(null);
+    const [filterActiveOrders, setFilterActiveOrders] = useState("all"); 
     const [network, setNetwork] = useState(null);
-
-
-    const [allOrders, setAllOrders] = useState(null);
-
-
+    const [allOrders, setAllOrders] = useState(null);    
     
     useEffect(() => {
-      if (selectedToken) {
-        fetchAndSetData(selectedToken);
+      if (selectedToken) { // Ensures no request is made when there's no token selected
+        fetchAndSetData(selectedToken, filterActiveOrders);
       }
-    }, [ selectedToken]);
+    }, [selectedToken, filterActiveOrders]);
 
+    // Function to filter orders based on active/inactive state
+    const filteredOrders = allOrders?.filter((order) => {
+      if (filterActiveOrders === "all") return true;
+      return filterActiveOrders === "active" ? order.active : !order.active;
+    });
 
     const fetchOrderTrades = async (endpoint, allOrders) => {
         let ordersWithTrades = []
@@ -41,22 +42,38 @@
         return ordersWithTrades
     }
   
-    const fetchAndSetData = async (token) => {
+    const fetchAndSetData = async (token, filter) => {
       try {
-        const network = tokenConfig[token]?.network
+        setInitialized(true);
+        const network = tokenConfig[token]?.network;
+        
+        // Fetch active and inactive orders
         const { filteredActiveOrders, filteredInActiveOrders } = await fetchAndFilterOrders(
           token,
-          network,
+          network
         );
+    
+        let filteredOrders = [];
+    
+        // Apply the filter based on selected option
+        if (filter === "active") {
+          filteredOrders = filteredActiveOrders;
+        } else if (filter === "inactive") {
+          filteredOrders = filteredInActiveOrders;
+        } else {
+          filteredOrders = filteredActiveOrders.concat(filteredInActiveOrders); // Default: show all
+        }
+    
+        // Fetch trades only for filtered orders
+        let allOrders = await fetchOrderTrades(networkConfig[network].subgraphUrl, filteredOrders);
         
-        let allOrders = await fetchOrderTrades(networkConfig[network].subgraphUrl,filteredActiveOrders.concat(filteredInActiveOrders))
-        setAllOrders(allOrders)
+        setAllOrders(allOrders);
         setLoading(false);
       } catch (error) {
-        setError(error)
+        setError(error);
       }
-    }
-
+    };
+    
     const renderOrdersTable = (orders) => {
       const formatTimestamp = (timestamp) => {
         return new Date(timestamp * 1000).toLocaleString("en-GB", {
@@ -211,22 +228,61 @@
       );
     };
     
-    const handleFiltersApply = (range, token) => {
-      setNetwork(tokenConfig[token].network)
-      setSelectedToken(token);
-      setInitialized(true);
-      setLoading(true);
-    };
-  
     if (error) {
       return <div>Error: {error}</div>;
     }
+
+    const handleFiltersApply = (token, filter) => {
+      setNetwork(tokenConfig[token].network);
+      setSelectedToken(token);
+      setFilterActiveOrders(filter);
+      setInitialized(true);
+      setLoading(true);
+    };
+    
     return (
       <div className="p-6 bg-gray-50 min-h-screen">
-        <TopBarWithFilters
-          onApplyFilters={handleFiltersApply}
-          tokenOptions={Object.keys(tokenConfig)} // Add your token options here
-        />
+        {/* New Native Header */}
+        <div className="bg-gray-800 text-white p-4 flex flex-col md:flex-row items-center justify-between rounded-lg shadow-lg">
+          {/* Left Side: Header */}
+          <h1 className="text-lg font-semibold uppercase tracking-wide">Market Reports</h1>
+    
+          {/* Right Side: Filters */}
+          <div className="flex flex-wrap items-center gap-4 mt-2 md:mt-0">
+            {/* Token Dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Token:</span>
+              <select
+                value={selectedToken || ""}
+                onChange={(e) => handleFiltersApply(e.target.value, filterActiveOrders)}
+                className="bg-gray-700 text-white p-2 rounded text-sm"
+              >
+                <option value="" disabled>Select a token</option> {/* Placeholder option */}
+                {Object.keys(tokenConfig).map((token, index) => (
+                  <option key={index} value={token}>
+                    {token}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+    
+            {/* Active/Inactive Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Filter:</span>
+              <select
+                value={filterActiveOrders}
+                onChange={(e) => handleFiltersApply(selectedToken, e.target.value)}
+                className="bg-gray-700 text-white p-2 rounded text-sm"
+              >
+                <option value="all">All Orders</option>
+                <option value="active">Active Orders</option>
+                <option value="inactive">Inactive Orders</option>
+              </select>
+            </div>
+          </div>
+        </div>
+    
         {initialized ? (
           loading ? (
             <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
@@ -236,17 +292,12 @@
           ) : (
             <div className="max-w-screen-3xl mx-auto p-8 bg-gray-100 rounded-lg shadow-lg">
               <div className="p-6 bg-gray-100 border-b border-gray-300">
-                <div className="flex justify-between items-start">
-                  {/* Title Section */}
-                  <h1 className="text-2xl font-bold text-gray-800">
-                    {selectedToken.toUpperCase()} Order List
-                  </h1>
-                </div>
+                <h1 className="text-2xl font-bold text-gray-800">{selectedToken.toUpperCase()} Order List</h1>
               </div>
     
               {/* Full-Width Table */}
               <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-                {allOrders && renderOrdersTable(allOrders)}
+                {filteredOrders && renderOrdersTable(filteredOrders)}
               </div>
     
               <div className="mt-8 bg-gray-100 text-gray-700 text-base p-6 rounded-lg">
@@ -264,11 +315,7 @@
                   </li>
                   <li>
                     <a
-                      href={
-                        networkConfig[
-                          tokenConfig[selectedToken.toUpperCase()]?.network
-                        ].subgraphUrl
-                      }
+                      href={networkConfig[tokenConfig[selectedToken.toUpperCase()]?.network].subgraphUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:underline"
@@ -283,8 +330,7 @@
         ) : (
           <div className="flex flex-col items-center justify-center bg-gray-100 rounded-lg shadow-md p-6 text-center">
             <p className="text-gray-700">
-              Please select a <span className="text-blue-900 font-medium">date range</span> and a{" "}
-              <span className="text-blue-900 font-medium">token</span> to filter the data.
+              Please select a <span className="text-blue-900 font-medium">token</span> and filter orders.
             </p>
           </div>
         )}

@@ -2,8 +2,218 @@
   import React, { useState, useEffect } from "react";
   import { fetchAndFilterOrders,fetchTradesQuery, tokenConfig, networkConfig, fetchAllPaginatedData } from "raindex-reports"
   import { ethers } from "ethers";
+  import { FaSort, FaSortUp, FaSortDown } from "react-icons/fa"; 
 
+  const OrdersTable = ({ network,orders }) => {
+    const [sortOrder, setSortOrder] = useState(null); // 'asc', 'desc', or null
+    const [sortedOrders, setSortedOrders] = useState([...orders]); // Maintain sorted orders
+
+    const formatTimestamp = (timestamp) => {
+      return new Date(timestamp * 1000).toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+    };
+
+    const now = Math.floor(Date.now() / 1000); // Current timestamp
+
+    // Sorting function with UX-friendly icons
+    const handleSortByVaultBalance = () => {
+      let newSortOrder;
+      if (sortOrder === "asc") newSortOrder = "desc";
+      else if (sortOrder === "desc") newSortOrder = null; // Reset to default order
+      else newSortOrder = "asc";
+
+      setSortOrder(newSortOrder);
+
+      if (newSortOrder) {
+        const sorted = [...orders].sort((a, b) => {
+          const aBalance = parseFloat(a.inputs.reduce((sum, input) => sum + parseFloat(input.balance || "0"), 0));
+          const bBalance = parseFloat(b.inputs.reduce((sum, input) => sum + parseFloat(input.balance || "0"), 0));
+
+          return newSortOrder === "asc" ? aBalance - bBalance : bBalance - aBalance;
+        });
+
+        setSortedOrders(sorted);
+      } else {
+        setSortedOrders([...orders]); // Reset to original order
+      }
+    };
+
+    const getOrderLink = (orderHash) =>
+      `https://raindex.finance/my-strategies/${orderHash}-${network}`;
   
+    return (
+      <div className="overflow-x-auto bg-white rounded-lg shadow-lg w-full">
+        <table className="table-auto w-full border-collapse border border-gray-200">
+          <thead className="bg-gray-100">
+            <tr className="text-left">
+              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">NETWORK</th>
+              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">LAST TRADE</th>
+              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">FIRST TRADE</th>
+              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">TOTAL TRADES</th>
+              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">TRADES (24H)</th>
+              <th 
+                className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700 "
+                onClick={handleSortByVaultBalance}
+              >
+                INPUTS 
+                {sortOrder === "asc" ? <FaSortUp /> : sortOrder === "desc" ? <FaSortDown /> : <FaSort />}
+              </th>
+
+              <th 
+                className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700 "
+                onClick={handleSortByVaultBalance}
+              >
+                OUTPUTS 
+                {sortOrder === "asc" ? <FaSortUp /> : sortOrder === "desc" ? <FaSortDown /> : <FaSort />}
+              </th>
+              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">INPUT CHANGE (24H)</th>
+              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">OUTPUT CHANGE (24H)</th>
+              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">Order Hash</th>
+            </tr>
+          </thead>
+          <tbody>
+              {sortedOrders.map((order, index) => {
+                const trades = order.trades || [];
+                const tradeTimestamps = trades.map((t) => parseInt(t.timestamp));
+    
+                const lastTrade = tradeTimestamps.length > 0 ? formatTimestamp(Math.max(...tradeTimestamps)) : "N/A";
+                const firstTrade = tradeTimestamps.length > 0 ? formatTimestamp(Math.min(...tradeTimestamps)) : "N/A";
+    
+                const trades24h = trades.filter((trade) => now - parseInt(trade.timestamp) <= 86400).length;
+    
+                // Input Balances
+                const inputBalances = order.inputs.map((input) => (
+                  <div key={input.id} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
+                    {input.token.symbol} :
+                    <br />
+                    {parseFloat(ethers.utils.formatUnits(input.balance, input.token.decimals)).toFixed(4)}
+                  </div>
+                ));
+    
+                // Output Balances
+                const outputBalances = order.outputs.map((output) => (
+                  <div key={output.id} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
+                    {output.token.symbol} :
+                    <br />
+                    {parseFloat(ethers.utils.formatUnits(output.balance, output.token.decimals)).toFixed(4)}
+                  </div>
+                ));
+    
+                // Calculate input balance change percentage in last 24 hours (with vault token matching)
+                const inputChange24h = order.inputs.map((input) => {
+                  const filteredTrades = trades
+                    .filter((trade) => now - parseInt(trade.timestamp) <= 86400)
+                    .sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
+    
+                  if (filteredTrades.length === 0) {
+                    return (
+                      <div key={input.token.address} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
+                        {`${input.token.symbol}: 0%`}
+                      </div>
+                      )
+                  }
+    
+                  const oldestTrade = filteredTrades[0];
+                  const latestTrade = filteredTrades[filteredTrades.length - 1];
+    
+                  const oldBalance = parseFloat(
+                    input.token.address === oldestTrade.inputVaultBalanceChange?.vault.token.address
+                      ? oldestTrade.inputVaultBalanceChange?.oldVaultBalance || "0"
+                      : oldestTrade.outputVaultBalanceChange?.oldVaultBalance || "0"
+                  );
+    
+                  const newBalance = parseFloat(
+                    input.token.address === latestTrade.inputVaultBalanceChange?.vault.token.address
+                      ? latestTrade.inputVaultBalanceChange?.newVaultBalance || "0"
+                      : latestTrade.outputVaultBalanceChange?.newVaultBalance || "0"
+                  );
+                  
+                  const balanceChange = (newBalance - oldBalance)
+                  const percentageChange = oldBalance > 0 ? (balanceChange / oldBalance) * 100 : 0;
+    
+                  return (
+                    <div key={input.token.address} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
+                      {`${input.token.symbol}: ${percentageChange.toFixed(4)}%`}
+                    </div>
+                  );
+                });
+    
+                // Calculate output balance change percentage in last 24 hours (with vault token matching)
+                const outputChange24h = order.outputs.map((output) => {
+                  const filteredTrades = trades
+                    .filter((trade) => now - parseInt(trade.timestamp) <= 86400)
+                    .sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
+    
+                  if (filteredTrades.length === 0){
+                    return (
+                      <div key={output.token.address} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
+                        {`${output.token.symbol}: 0%`}
+                      </div>
+                      )
+                  }
+    
+                  const oldestTrade = filteredTrades[0];
+                  const latestTrade = filteredTrades[filteredTrades.length - 1];
+    
+                  const oldBalance = parseFloat(
+                    output.token.address === oldestTrade.outputVaultBalanceChange?.vault.token.address
+                      ? oldestTrade.outputVaultBalanceChange?.oldVaultBalance || "0"
+                      : oldestTrade.inputVaultBalanceChange?.oldVaultBalance || "0"
+                  );
+    
+                  const newBalance = parseFloat(
+                    output.token.address === latestTrade.outputVaultBalanceChange?.vault.token.address
+                      ? latestTrade.outputVaultBalanceChange?.newVaultBalance || "0"
+                      : latestTrade.inputVaultBalanceChange?.newVaultBalance || "0"
+                  );
+    
+                  const percentageChange = oldBalance > 0 ? ((newBalance - oldBalance) / oldBalance) * 100 : 0;
+    
+                  return (
+                    <div key={output.token.address} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
+                      {`${output.token.symbol}: ${percentageChange.toFixed(4)}%`}
+                    </div>
+                  );
+                });
+    
+                return (
+                  <tr key={index} className="border-t border-gray-300">
+                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{network}</td>
+                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{lastTrade}</td>
+                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{firstTrade}</td>
+                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{trades.length}</td>
+                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{trades24h}</td>
+                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{inputBalances}</td>
+                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{outputBalances}</td>
+                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{inputChange24h}</td>
+                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{outputChange24h}</td>
+                    <td className="py-2 px-4 text-blue-500 underline">
+                    <a
+                      href={getOrderLink(order.orderHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {`${order.orderHash.slice(0, 6)}...${order.orderHash.slice(
+                        -4
+                      )}`}
+                    </a>
+                  </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+        </table>
+      </div>
+    );
+  };
+  
+
   const RaindexOrderList = () => {
     const [initialized, setInitialized] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -74,159 +284,159 @@
       }
     };
     
-    const renderOrdersTable = (orders) => {
-      const formatTimestamp = (timestamp) => {
-        return new Date(timestamp * 1000).toLocaleString("en-GB", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        });
-      };
+    // const renderOrdersTable = (orders) => {
+    //   const formatTimestamp = (timestamp) => {
+    //     return new Date(timestamp * 1000).toLocaleString("en-GB", {
+    //       day: "2-digit",
+    //       month: "2-digit",
+    //       year: "numeric",
+    //       hour: "2-digit",
+    //       minute: "2-digit",
+    //       second: "2-digit",
+    //     });
+    //   };
     
-      const now = Math.floor(Date.now() / 1000); // Current timestamp
+    //   const now = Math.floor(Date.now() / 1000); // Current timestamp
     
-      return (
-        <div className="overflow-x-auto bg-white rounded-lg shadow-lg w-full">
-          <table className="table-auto w-full border-collapse border border-gray-200">
-            <thead className="bg-gray-100">
-              <tr className="text-left">
-                <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">NETWORK</th>
-                <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">LAST TRADE</th>
-                <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">FIRST TRADE</th>
-                <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">TOTAL TRADES</th>
-                <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">TRADES (24H)</th>
-                <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">INPUTS</th>
-                <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">OUTPUTS</th>
-                <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">INPUT CHANGE (24H)</th>
-                <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">OUTPUT CHANGE (24H)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order, index) => {
-                const trades = order.trades || [];
-                const tradeTimestamps = trades.map((t) => parseInt(t.timestamp));
+    //   return (
+    //     <div className="overflow-x-auto bg-white rounded-lg shadow-lg w-full">
+    //       <table className="table-auto w-full border-collapse border border-gray-200">
+    //         <thead className="bg-gray-100">
+    //           <tr className="text-left">
+    //             <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">NETWORK</th>
+    //             <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">LAST TRADE</th>
+    //             <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">FIRST TRADE</th>
+    //             <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">TOTAL TRADES</th>
+    //             <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">TRADES (24H)</th>
+    //             <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">INPUTS</th>
+    //             <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">OUTPUTS</th>
+    //             <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">INPUT CHANGE (24H)</th>
+    //             <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">OUTPUT CHANGE (24H)</th>
+    //           </tr>
+    //         </thead>
+    //         <tbody>
+    //           {orders.map((order, index) => {
+    //             const trades = order.trades || [];
+    //             const tradeTimestamps = trades.map((t) => parseInt(t.timestamp));
     
-                const lastTrade = tradeTimestamps.length > 0 ? formatTimestamp(Math.max(...tradeTimestamps)) : "N/A";
-                const firstTrade = tradeTimestamps.length > 0 ? formatTimestamp(Math.min(...tradeTimestamps)) : "N/A";
+    //             const lastTrade = tradeTimestamps.length > 0 ? formatTimestamp(Math.max(...tradeTimestamps)) : "N/A";
+    //             const firstTrade = tradeTimestamps.length > 0 ? formatTimestamp(Math.min(...tradeTimestamps)) : "N/A";
     
-                const trades24h = trades.filter((trade) => now - parseInt(trade.timestamp) <= 86400).length;
+    //             const trades24h = trades.filter((trade) => now - parseInt(trade.timestamp) <= 86400).length;
     
-                // Input Balances
-                const inputBalances = order.inputs.map((input) => (
-                  <div key={input.id} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
-                    {input.token.symbol}
-                    <br />
-                    Strategy Balance: {ethers.utils.formatUnits(input.balance, input.token.decimals)}
-                  </div>
-                ));
+    //             // Input Balances
+    //             const inputBalances = order.inputs.map((input) => (
+    //               <div key={input.id} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
+    //                 {input.token.symbol}
+    //                 <br />
+    //                 Strategy Balance: {ethers.utils.formatUnits(input.balance, input.token.decimals)}
+    //               </div>
+    //             ));
     
-                // Output Balances
-                const outputBalances = order.outputs.map((output) => (
-                  <div key={output.id} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
-                    {output.token.symbol}
-                    <br />
-                    Strategy Balance: {ethers.utils.formatUnits(output.balance, output.token.decimals)}
-                  </div>
-                ));
+    //             // Output Balances
+    //             const outputBalances = order.outputs.map((output) => (
+    //               <div key={output.id} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
+    //                 {output.token.symbol}
+    //                 <br />
+    //                 Strategy Balance: {ethers.utils.formatUnits(output.balance, output.token.decimals)}
+    //               </div>
+    //             ));
     
-                // Calculate input balance change percentage in last 24 hours (with vault token matching)
-                const inputChange24h = order.inputs.map((input) => {
-                  const filteredTrades = trades
-                    .filter((trade) => now - parseInt(trade.timestamp) <= 86400)
-                    .sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
+    //             // Calculate input balance change percentage in last 24 hours (with vault token matching)
+    //             const inputChange24h = order.inputs.map((input) => {
+    //               const filteredTrades = trades
+    //                 .filter((trade) => now - parseInt(trade.timestamp) <= 86400)
+    //                 .sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
     
-                  if (filteredTrades.length === 0) {
-                    return (
-                      <div key={input.token.address} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
-                        {`${input.token.symbol}: 0%`}
-                      </div>
-                      )
-                  }
+    //               if (filteredTrades.length === 0) {
+    //                 return (
+    //                   <div key={input.token.address} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
+    //                     {`${input.token.symbol}: 0%`}
+    //                   </div>
+    //                   )
+    //               }
     
-                  const oldestTrade = filteredTrades[0];
-                  const latestTrade = filteredTrades[filteredTrades.length - 1];
+    //               const oldestTrade = filteredTrades[0];
+    //               const latestTrade = filteredTrades[filteredTrades.length - 1];
     
-                  const oldBalance = parseFloat(
-                    input.token.address === oldestTrade.inputVaultBalanceChange?.vault.token.address
-                      ? oldestTrade.inputVaultBalanceChange?.oldVaultBalance || "0"
-                      : oldestTrade.outputVaultBalanceChange?.oldVaultBalance || "0"
-                  );
+    //               const oldBalance = parseFloat(
+    //                 input.token.address === oldestTrade.inputVaultBalanceChange?.vault.token.address
+    //                   ? oldestTrade.inputVaultBalanceChange?.oldVaultBalance || "0"
+    //                   : oldestTrade.outputVaultBalanceChange?.oldVaultBalance || "0"
+    //               );
     
-                  const newBalance = parseFloat(
-                    input.token.address === latestTrade.inputVaultBalanceChange?.vault.token.address
-                      ? latestTrade.inputVaultBalanceChange?.newVaultBalance || "0"
-                      : latestTrade.outputVaultBalanceChange?.newVaultBalance || "0"
-                  );
+    //               const newBalance = parseFloat(
+    //                 input.token.address === latestTrade.inputVaultBalanceChange?.vault.token.address
+    //                   ? latestTrade.inputVaultBalanceChange?.newVaultBalance || "0"
+    //                   : latestTrade.outputVaultBalanceChange?.newVaultBalance || "0"
+    //               );
     
-                  const percentageChange = oldBalance > 0 ? ((newBalance - oldBalance) / oldBalance) * 100 : 0;
+    //               const percentageChange = oldBalance > 0 ? ((newBalance - oldBalance) / oldBalance) * 100 : 0;
     
-                  return (
-                    <div key={input.token.address} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
-                      {`${input.token.symbol}: ${percentageChange.toFixed(4)}%`}
-                    </div>
-                  );
-                });
+    //               return (
+    //                 <div key={input.token.address} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
+    //                   {`${input.token.symbol}: ${percentageChange.toFixed(4)}%`}
+    //                 </div>
+    //               );
+    //             });
     
-                // Calculate output balance change percentage in last 24 hours (with vault token matching)
-                const outputChange24h = order.outputs.map((output) => {
-                  const filteredTrades = trades
-                    .filter((trade) => now - parseInt(trade.timestamp) <= 86400)
-                    .sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
+    //             // Calculate output balance change percentage in last 24 hours (with vault token matching)
+    //             const outputChange24h = order.outputs.map((output) => {
+    //               const filteredTrades = trades
+    //                 .filter((trade) => now - parseInt(trade.timestamp) <= 86400)
+    //                 .sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
     
-                  if (filteredTrades.length === 0){
-                    return (
-                      <div key={output.token.address} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
-                        {`${output.token.symbol}: 0%`}
-                      </div>
-                      )
-                  }
+    //               if (filteredTrades.length === 0){
+    //                 return (
+    //                   <div key={output.token.address} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
+    //                     {`${output.token.symbol}: 0%`}
+    //                   </div>
+    //                   )
+    //               }
     
-                  const oldestTrade = filteredTrades[0];
-                  const latestTrade = filteredTrades[filteredTrades.length - 1];
+    //               const oldestTrade = filteredTrades[0];
+    //               const latestTrade = filteredTrades[filteredTrades.length - 1];
     
-                  const oldBalance = parseFloat(
-                    output.token.address === oldestTrade.outputVaultBalanceChange?.vault.token.address
-                      ? oldestTrade.outputVaultBalanceChange?.oldVaultBalance || "0"
-                      : oldestTrade.inputVaultBalanceChange?.oldVaultBalance || "0"
-                  );
+    //               const oldBalance = parseFloat(
+    //                 output.token.address === oldestTrade.outputVaultBalanceChange?.vault.token.address
+    //                   ? oldestTrade.outputVaultBalanceChange?.oldVaultBalance || "0"
+    //                   : oldestTrade.inputVaultBalanceChange?.oldVaultBalance || "0"
+    //               );
     
-                  const newBalance = parseFloat(
-                    output.token.address === latestTrade.outputVaultBalanceChange?.vault.token.address
-                      ? latestTrade.outputVaultBalanceChange?.newVaultBalance || "0"
-                      : latestTrade.inputVaultBalanceChange?.newVaultBalance || "0"
-                  );
+    //               const newBalance = parseFloat(
+    //                 output.token.address === latestTrade.outputVaultBalanceChange?.vault.token.address
+    //                   ? latestTrade.outputVaultBalanceChange?.newVaultBalance || "0"
+    //                   : latestTrade.inputVaultBalanceChange?.newVaultBalance || "0"
+    //               );
     
-                  const percentageChange = oldBalance > 0 ? ((newBalance - oldBalance) / oldBalance) * 100 : 0;
+    //               const percentageChange = oldBalance > 0 ? ((newBalance - oldBalance) / oldBalance) * 100 : 0;
     
-                  return (
-                    <div key={output.token.address} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
-                      {`${output.token.symbol}: ${percentageChange.toFixed(4)}%`}
-                    </div>
-                  );
-                });
+    //               return (
+    //                 <div key={output.token.address} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
+    //                   {`${output.token.symbol}: ${percentageChange.toFixed(4)}%`}
+    //                 </div>
+    //               );
+    //             });
     
-                return (
-                  <tr key={index} className="border-t border-gray-300">
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{network}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{lastTrade}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{firstTrade}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{trades.length}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{trades24h}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{inputBalances}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{outputBalances}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{inputChange24h}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{outputChange24h}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      );
-    };
+    //             return (
+    //               <tr key={index} className="border-t border-gray-300">
+    //                 <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{network}</td>
+    //                 <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{lastTrade}</td>
+    //                 <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{firstTrade}</td>
+    //                 <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{trades.length}</td>
+    //                 <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{trades24h}</td>
+    //                 <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{inputBalances}</td>
+    //                 <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{outputBalances}</td>
+    //                 <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{inputChange24h}</td>
+    //                 <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{outputChange24h}</td>
+    //               </tr>
+    //             );
+    //           })}
+    //         </tbody>
+    //       </table>
+    //     </div>
+    //   );
+    // };
     
     if (error) {
       return <div>Error: {error}</div>;
@@ -297,7 +507,7 @@
     
               {/* Full-Width Table */}
               <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-                {filteredOrders && renderOrdersTable(filteredOrders)}
+                {filteredOrders && <OrdersTable network={network} orders={filteredOrders} />}
               </div>
     
               <div className="mt-8 bg-gray-100 text-gray-700 text-base p-6 rounded-lg">

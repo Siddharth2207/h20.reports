@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import RaindexMarketData from "./components/RaindexMarketData";
 import RaindexVaults from "./components/RaindexVaults";
 import RaindexVisualization from "./components/RaindexVisualization";
+import RaindexOrderList from "./components/RaindexOrderList";
+
 import './tailwind.css';
 
 import logoIcon from './assets/h20-logo.png';
@@ -42,6 +44,15 @@ const Header = () => (
               Raindex Vaults
             </Link>
           </li>
+          <li>
+          <Link
+              to="/orderlist"
+              className="text-indigo-600 font-semibold text-lg no-underline"
+            >
+              Order List
+            </Link>
+          </li>
+
         </ul>
       </nav>
     </div>
@@ -62,6 +73,10 @@ const App = () => {
           <Route
             path="/vaults"
             element={<RaindexVaults />}
+          />
+          <Route
+            path="/orderlist"
+            element={<RaindexOrderList />}
           />
         </Routes>
         

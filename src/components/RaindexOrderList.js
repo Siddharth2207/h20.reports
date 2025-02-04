@@ -18,6 +18,13 @@
       });
     };
 
+    const formatBalance = (balance) => {
+      const num = parseFloat(balance);
+      if (num >= 1e6) return (num / 1e6).toFixed(2) + "M";
+      if (num >= 1e3) return (num / 1e3).toFixed(2) + "K";
+      return num.toFixed(2);
+    };
+
     const transformedOrders = orders.map((order) => {
         const trades = order.trades || [];
         const tradeTimestamps = trades.map((t) => parseInt(t.timestamp));
@@ -35,33 +42,11 @@
           }
         });
 
-        const inputDepositsWithdraws = order.inputs.map((input) => {
-          const totalVaultDeposits = input.deposits.reduce((total, deposit) => total.add(ethers.BigNumber.from(deposit.amount)), ethers.BigNumber.from(0));
-          const totalVaultWithdrawals = input.withdrawals.reduce((total, withdrawal) => total.add(ethers.BigNumber.from(withdrawal.amount)), ethers.BigNumber.from(0));
-
-          return {
-            inputToken : input.token.symbol,
-            totalVaultDeposits: parseFloat(ethers.utils.formatUnits(totalVaultDeposits, input.token.decimals)).toFixed(4),
-            totalVaultWithdrawals: parseFloat(ethers.utils.formatUnits(totalVaultWithdrawals, input.token.decimals)).toFixed(4)
-          }
-        });
-
         // Output Balances
         const outputBalances = order.outputs.map((output) => {
           return {
             outputToken: output.token.symbol,
             outputTokenBalance: parseFloat(ethers.utils.formatUnits(output.balance, output.token.decimals)).toFixed(4)
-          }
-        });
-
-        const outputDepositsWithdraws = order.outputs.map((output) => {
-          const totalVaultDeposits = output.deposits.reduce((total, deposit) => total.add(ethers.BigNumber.from(deposit.amount)), ethers.BigNumber.from(0));
-          const totalVaultWithdrawals = output.withdrawals.reduce((total, withdrawal) => total.add(ethers.BigNumber.from(withdrawal.amount)), ethers.BigNumber.from(0));
-
-          return {
-            outputToken : output.token.symbol,
-            totalVaultDeposits: parseFloat(ethers.utils.formatUnits(totalVaultDeposits, output.token.decimals)).toFixed(4),
-            totalVaultWithdrawals: parseFloat(ethers.utils.formatUnits(totalVaultWithdrawals, output.token.decimals)).toFixed(4)
           }
         });
 
@@ -154,17 +139,39 @@
           firstTrade: firstTrade,
           inputBalances: inputBalances,
           outputBalances: outputBalances,
-          inputDepositsWithdraws: inputDepositsWithdraws,
-          outputDepositsWithdraws: outputDepositsWithdraws,
           inputChange24h: inputChange24h,
           outputChange24h: outputChange24h
         }
     });
     const [sortedOrders, setSortedOrders] = useState([...transformedOrders]);
+    const [activeTab, setActiveTab] = useState("main");
+    const [depositsData, setDepositsData] = useState(null);
+    const [loadingDeposits, setLoadingDeposits] = useState(false);
+
+    useEffect(() => {
+      if (activeTab === "vault" && !depositsData) {
+        // Only fetch data if it's not already loaded
+        setLoadingDeposits(true);
+        
+        const fetchData = async () => {
+          try {
+            const data = await fetchDepositsAndWithdrawals(sortedOrders);
+            setDepositsData(data);
+            setSortedOrders(data);
+          } catch (error) {
+            console.error("Error fetching deposits/withdrawals:", error);
+          } finally {
+            setLoadingDeposits(false);
+          }
+        };
+    
+        fetchData(); // Call the async function
+      }
+    }, [activeTab, sortedOrders]); // Added sortedOrders as a dependency
 
     // Sorting function with UX-friendly icons
     const handleSortByVaultBalance = (sortType) => {
-      let sorted = [...transformedOrders];
+      let sorted = [...sortedOrders];
     
       switch (sortType) {
         case "totalTradesAsc":
@@ -298,198 +305,446 @@
               return bChange - aChange;
             });
             break;
+          
+          case "inputDifferentialAsc":
+            sorted.sort((a, b) => {
+              const aChange = 
+              parseFloat(a.inputDepositsWithdraws.reduce((sum, input) => sum + parseFloat(Math.abs(input.vaultDifferentialPercentage) || "0"), 0));
+  
+              const bChange = 
+              parseFloat(b.inputDepositsWithdraws.reduce((sum, input) => sum + parseFloat(Math.abs(input.vaultDifferentialPercentage) || "0"), 0));
+              return aChange - bChange;
+            });
+            break;
+          
+          case "inputDifferentialDesc":
+            sorted.sort((a, b) => {
+              const aChange = 
+              parseFloat(a.inputDepositsWithdraws.reduce((sum, input) => sum + parseFloat(Math.abs(input.vaultDifferentialPercentage) || "0"), 0));
+  
+              const bChange = 
+              parseFloat(b.inputDepositsWithdraws.reduce((sum, input) => sum + parseFloat(Math.abs(input.vaultDifferentialPercentage) || "0"), 0));
+              return bChange - aChange;
+            });
+            break;
+          
+          case "outputDifferentialAsc":
+            sorted.sort((a, b) => {
+              const aChange = 
+              parseFloat(a.outputDepositsWithdraws.reduce((sum, output) => sum + parseFloat(Math.abs(output.vaultDifferentialPercentage) || "0"), 0));
+  
+              const bChange = 
+              parseFloat(b.outputDepositsWithdraws.reduce((sum, output) => sum + parseFloat(Math.abs(output.vaultDifferentialPercentage) || "0"), 0));
+              return aChange - bChange;
+            });
+            break;
+          
+          case "outputDifferentialDesc":
+              sorted.sort((a, b) => {
+                const aChange = 
+                parseFloat(a.outputDepositsWithdraws.reduce((sum, output) => sum + parseFloat(Math.abs(output.vaultDifferentialPercentage) || "0"), 0));
+    
+                const bChange = 
+                parseFloat(b.outputDepositsWithdraws.reduce((sum, output) => sum + parseFloat(Math.abs(output.vaultDifferentialPercentage) || "0"), 0));
+                return bChange - aChange;
+              });
+              break;
     
         default:
-          sorted = [...transformedOrders]; // Reset to original order
+          sorted = [...sortedOrders];
       }
     
       setSortedOrders(sorted);
     };
     
+    const fetchDepositsAndWithdrawals = async (ordersWithTrades) => {
+        const endpoint = networkConfig[network].subgraphUrl
+        for(let i = 0; i < ordersWithTrades.length; i++){
+          let order = ordersWithTrades[i]
+          for(let i = 0; i < order.inputs.length; i++){
+            let input = order.inputs[i]
+            const deposits = await fetchAllPaginatedData(
+              endpoint,
+              vaultDepositsQuery,
+              {vaultId: input.id},
+              "deposits"
+            )
+            input["deposits"] = deposits
+            const withdrawals = await fetchAllPaginatedData(
+              endpoint,
+              vaultWithdrawalQuery,
+              {vaultId: input.id},
+              "withdrawals"
+            )
+            input["withdrawals"] = withdrawals
+          }
+
+          for(let i = 0; i < order.outputs.length; i++){
+            let output = order.outputs[i]
+            const deposits = await fetchAllPaginatedData(
+              endpoint,
+              vaultDepositsQuery,
+              {vaultId: output.id},
+              "deposits"
+            )
+            output["deposits"] = deposits
+            const withdrawals = await fetchAllPaginatedData(
+              endpoint,
+              vaultWithdrawalQuery,
+              {vaultId: output.id},
+              "withdrawals"
+            )
+            output["withdrawals"] = withdrawals
+          }
+          ordersWithTrades[i] = order
+      }
+      const transformedOrders = ordersWithTrades.map((order) => {
+        const inputDepositsWithdraws = order.inputs.map((input) => {
+          const totalVaultDeposits = input.deposits.reduce((total, deposit) => total.add(ethers.BigNumber.from(deposit.amount)), ethers.BigNumber.from(0));
+          const totalVaultWithdrawals = input.withdrawals.reduce((total, withdrawal) => total.add(ethers.BigNumber.from(withdrawal.amount)), ethers.BigNumber.from(0));
+          const curerentVaultDifferential = parseFloat(
+            ethers.utils.formatUnits(
+              totalVaultDeposits.sub(totalVaultWithdrawals.add(input.balance)), 
+              input.token.decimals
+            )
+          ).toFixed(4);
+          const vaultDifferentialPercentage = totalVaultDeposits.gt(0) ? (
+            parseFloat(
+              ethers.utils.formatUnits(
+                totalVaultDeposits.sub(totalVaultWithdrawals.add(input.balance)), 
+                input.token.decimals
+              )
+            ) / parseFloat(ethers.utils.formatUnits(totalVaultDeposits, input.token.decimals)) * 100
+          ).toFixed(2) : "0.00";
+
+          return {
+            inputToken : input.token.symbol,
+            totalVaultDeposits: parseFloat(ethers.utils.formatUnits(totalVaultDeposits, input.token.decimals)).toFixed(4),
+            totalVaultWithdrawals: parseFloat(ethers.utils.formatUnits(totalVaultWithdrawals, input.token.decimals)).toFixed(4),
+            curerentVaultDifferential,
+            vaultDifferentialPercentage
+          }
+        });
+        const outputDepositsWithdraws = order.outputs.map((output) => {
+          const totalVaultDeposits = output.deposits.reduce((total, deposit) => total.add(ethers.BigNumber.from(deposit.amount)), ethers.BigNumber.from(0));
+          const totalVaultWithdrawals = output.withdrawals.reduce((total, withdrawal) => total.add(ethers.BigNumber.from(withdrawal.amount)), ethers.BigNumber.from(0));
+          const curerentVaultDifferential = parseFloat(
+            ethers.utils.formatUnits(
+              totalVaultDeposits.sub(totalVaultWithdrawals.add(output.balance)), 
+              output.token.decimals
+            )
+          ).toFixed(4);
+          const vaultDifferentialPercentage = totalVaultDeposits.gt(0) ? (
+            parseFloat(
+              ethers.utils.formatUnits(
+                totalVaultDeposits.sub(totalVaultWithdrawals.add(output.balance)), 
+                output.token.decimals
+              )
+            ) / parseFloat(ethers.utils.formatUnits(totalVaultDeposits, output.token.decimals)) * 100
+          ).toFixed(2) : "0.00";
+
+          return {
+            outputToken : output.token.symbol,
+            totalVaultDeposits: parseFloat(ethers.utils.formatUnits(totalVaultDeposits, output.token.decimals)).toFixed(4),
+            totalVaultWithdrawals: parseFloat(ethers.utils.formatUnits(totalVaultWithdrawals, output.token.decimals)).toFixed(4),
+            currentVaultBalance : parseFloat(ethers.utils.formatUnits(output.balance, output.token.decimals)).toFixed(4),
+            curerentVaultDifferential,
+            vaultDifferentialPercentage
+          }
+        });
+        return {
+          ...order,
+          inputDepositsWithdraws: inputDepositsWithdraws,
+          outputDepositsWithdraws: outputDepositsWithdraws
+        }
+      })
+      return transformedOrders
+    }
   
     const getOrderLink = (orderHash) =>
       `https://raindex.finance/my-strategies/${orderHash}-${network}`;
-  
+    
     return (
       <div className="overflow-x-auto bg-white rounded-lg shadow-lg w-full">
+        <div className="flex border-b border-gray-300 bg-gray-100 rounded-t-lg">
+          <button
+            className={`px-6 py-3 text-sm font-medium transition-all ${
+              activeTab === "main"
+                ? "border-b-2 border-indigo-500 text-indigo-600 font-semibold bg-white"
+                : "text-gray-600 hover:text-indigo-500"
+            }`}
+            onClick={() => setActiveTab("main")}
+          >
+            Trades & Balances
+          </button>
+          <button
+            className={`px-6 py-3 text-sm font-medium transition-all ${
+              activeTab === "vault"
+                ? "border-b-2 border-indigo-500 text-indigo-600 font-semibold bg-white"
+                : "text-gray-600 hover:text-indigo-500"
+            }`}
+            onClick={() => setActiveTab("vault")}
+          >
+            Deposits & Withdrawals
+          </button>
+        </div>
+
         <table className="table-auto w-full border-collapse border border-gray-200">
-          <thead className="bg-gray-100">
-            <tr className="text-left">
-              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">NETWORK</th>
-              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">LAST TRADE</th>
-              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">FIRST TRADE</th>
-              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">
-                <select
-                  className="ml-2 bg-gray-200 text-gray-700 p-1 rounded"
-                  onChange={(e) => handleSortByVaultBalance(e.target.value)}
-                >
-                  <option value="totalTradesAsc">Total Trades ↑</option>
-                  <option value="totalTradesDesc">Total Trades ↓</option>
-                </select>
-              </th>
+        <thead className="bg-gray-50 text-gray-800 text-sm font-semibold">
+          <tr className="border-b border-gray-300">
+            <th className="px-4 py-3 text-left">Network</th>
+            <th className="px-4 py-3 text-left">Last Trade</th>
+            <th className="px-4 py-3 text-left">First Trade</th>
 
-              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">
-                <select
-                  className="ml-2 bg-gray-200 text-gray-700 p-1 rounded"
-                  onChange={(e) => handleSortByVaultBalance(e.target.value)}
-                >
-                  <option value="trades24hAsc">Trades (24H) ↑</option>
-                  <option value="trades24hDesc">Trades (24H) ↓</option>
-                </select>
-              </th>
+            {activeTab === "main" ? (
+              <>
+                <th className="px-4 py-3 text-center">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(e.target.value)}
+                  >
+                    <option value="totalTradesAsc">Total ↑</option>
+                    <option value="totalTradesDesc">Total ↓</option>
+                  </select>
+                </th>
 
-              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">
-                <select
-                  className="ml-2 bg-gray-200 text-gray-700 p-1 rounded"
-                  onChange={(e) => handleSortByVaultBalance(e.target.value)}
-                >
-                  <option value="inputAsc">Input Balance ↑</option>
-                  <option value="inputDesc">Input Balance ↓</option>
-                </select>
-                
-              </th>
-              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">
-                <select
-                  className="ml-2 bg-gray-200 text-gray-700 p-1 rounded"
-                  onChange={(e) => handleSortByVaultBalance(e.target.value)}
-                >
-                  <option value="outputAsc">Output Balance ↑</option>
-                  <option value="outputDesc">Output Balance ↓</option>
-                </select>
-                
-              </th>
-              
+                <th className="px-4 py-3 text-center">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(e.target.value)}
+                  >
+                    <option value="trades24hAsc">24h ↑</option>
+                    <option value="trades24hDesc">24h ↓</option>
+                  </select>
+                </th>
 
-              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">
-                <select
-                  className="ml-2 bg-gray-200 text-gray-700 p-1 rounded"
-                  onChange={(e) => handleSortByVaultBalance(e.target.value)}
-                >
-                  <option value="inputChangeAsc">Input Change (24H) ↑</option>
-                  <option value="inputChangeDesc">Input Change (24H) ↓</option>
-                </select>
-              </th>
-              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">
-                <select
-                  className="ml-2 bg-gray-200 text-gray-700 p-1 rounded"
-                  onChange={(e) => handleSortByVaultBalance(e.target.value)}
-                >
-                  <option value="outputChangeAsc">Output Change (24H) ↑</option>
-                  <option value="outputChangeDesc">Output Change (24H) ↓</option>
-                </select>
-              </th>
-              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">
-                <select
-                  className="ml-2 bg-gray-200 text-gray-700 p-1 rounded"
-                  onChange={(e) => handleSortByVaultBalance(e.target.value)}
-                >
-                  <option value="inputDepositWithdrawalsAsc">Input Deposits / Withdrawals ↑</option>
-                  <option value="inputDepositWithdrawalsDesc">Input Deposits / Withdrawals ↓</option>
-                </select>
-                
-              </th>
-              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">
-                <select
-                  className="ml-2 bg-gray-200 text-gray-700 p-1 rounded"
-                  onChange={(e) => handleSortByVaultBalance(e.target.value)}
-                >
-                  <option value="outputDepositWithdrawalsAsc">Output Deposits / Withdrawals ↑</option>
-                  <option value="outputDepositWithdrawalsDesc">Output Deposits / Withdrawals ↓</option>
-                </select>
-                
-              </th>
-              <th className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">Order Hash</th>
-            </tr>
-          </thead>
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(e.target.value)}
+                  >
+                    <option value="inputAsc">Input Balance ↑</option>
+                    <option value="inputDesc">Input Balance ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(e.target.value)}
+                  >
+                    <option value="outputAsc">Output Balance ↑</option>
+                    <option value="outputDesc">Output Balance ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(e.target.value)}
+                  >
+                    <option value="inputChangeAsc">Input Δ 24h ↑</option>
+                    <option value="inputChangeDesc">Input Δ 24h ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(e.target.value)}
+                  >
+                    <option value="outputChangeAsc">Output Δ 24h ↑</option>
+                    <option value="outputChangeDesc">Output Δ 24h ↓</option>
+                  </select>
+                </th>
+              </>
+            ) : (
+              <>
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(e.target.value)}
+                  >
+                    <option value="inputDepositWithdrawalsAsc">Input Deposits ↑</option>
+                    <option value="inputDepositWithdrawalsDesc">Input Deposits ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(e.target.value)}
+                  >
+                    <option value="outputDepositWithdrawalsAsc">Output Deposits ↑</option>
+                    <option value="outputDepositWithdrawalsDesc">Output Deposits ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(e.target.value)}
+                  >
+                    <option value="inputDifferentialAsc">Input Δ ↑</option>
+                    <option value="inputDifferentialDesc">Input Δ ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(e.target.value)}
+                  >
+                    <option value="outputDifferentialAsc">Output Δ ↑</option>
+                    <option value="outputDifferentialDesc">Output Δ ↓</option>
+                  </select>
+                </th>
+              </>
+            )}
+            
+            <th className="px-4 py-3 text-left">Hash</th>
+          </tr>
+        </thead>
+
           <tbody>
-              {sortedOrders.map((order, index) => {
-    
-                return (
-                  <tr key={index} className="border-t border-gray-300">
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{network}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{order.lastTrade}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{order.firstTrade}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{order.trades.length}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">{order.trades24h}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
-                      {order.inputBalances.map((input,index) => (
-                        <div key={index} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
-                          {input.inputTokenBalance} {input.inputToken}
-                        </div>
-                      ))}
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
-                      {order.outputBalances.map((output,index) => (
-                        <div key={index} className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1">
-                          {output.outputTokenBalance} {output.outputToken}
-                        </div>
-                      ))}
-                    </td>
-                    
+              {sortedOrders.map((order, index) => (
+                <tr key={index} className="border-t border-gray-300 text-gray-700">
+                  <td className="px-4 py-3 text-sm">{network}</td>
+                  <td className="px-4 py-3 text-sm">{order.lastTrade}</td>
+                  <td className="px-4 py-3 text-sm">{order.firstTrade}</td>
 
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
-                      {order.inputChange24h.map((change, index) => (
-                        <div
-                          key={index}
-                          className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1"
-                        >
-                          {`${change.inputBalanceChange} ${change.inputToken} (${parseFloat(change.inputPercentageChange).toFixed(2)}%)`}
-                        </div>
-                      ))}
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
-                      {order.outputChange24h.map((change, index) => (
-                        <div
-                          key={index}
-                          className="border border-gray-300 px-3 py-2 rounded bg-gray-50 text-sm mb-1"
-                        >
-                          {`${change.outputBalanceChange} ${change.outputToken} (${parseFloat(change.outputPercentageChange).toFixed(2)}%)`}
-                        </div>
-                      ))}
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
-                        {order.inputDepositsWithdraws.map((input, index) => (
-                          <div
-                            key={index}
-                            className="flex justify-between items-center border border-gray-300 px-4 py-2 rounded-lg bg-gray-50 text-sm mb-2 shadow-sm"
-                          >
-                            <span className="font-semibold text-gray-800">{input.inputToken}</span>
-                            <div className="flex flex-col text-right">
-                              <span className="text-green-600 font-medium">+{input.totalVaultDeposits}</span>
-                              <span className="text-red-600 font-medium">{input.totalVaultWithdrawals}</span>
-                            </div>
+                  {activeTab === "main" ? (
+                    <>
+                      <td className="px-4 py-3 text-sm text-center">{order.trades.length}</td>
+                      <td className="px-4 py-3 text-sm text-center">{order.trades24h}</td>
+
+                      {/* Input Balance */}
+                      <td className="px-4 py-3 text-sm">
+                        {order.inputBalances.map((input, index) => (
+                          <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                            <span className="font-semibold">{input.inputToken}</span>
+                            <span className="text-gray-800">{formatBalance(input.inputTokenBalance)}</span>
                           </div>
                         ))}
                       </td>
 
-                      <td className="border border-gray-300 px-4 py-3 text-sm text-gray-700">
-                        {order.outputDepositsWithdraws.map((output, index) => (
-                          <div
-                            key={index}
-                            className="flex justify-between items-center border border-gray-300 px-4 py-2 rounded-lg bg-gray-50 text-sm mb-2 shadow-sm"
-                          >
-                            <span className="font-semibold text-gray-800">{output.outputToken}</span>
-                            <div className="flex flex-col text-right">
-                              <span className="text-green-600 font-medium">+{output.totalVaultDeposits}</span>
-                              <span className="text-red-600 font-medium">{output.totalVaultWithdrawals}</span>
-                            </div>
+                      {/* Output Balance */}
+                      <td className="px-4 py-3 text-sm">
+                        {order.outputBalances.map((output, index) => (
+                          <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                            <span className="font-semibold">{output.outputToken}</span>
+                            <span className="text-gray-800">{formatBalance(output.outputTokenBalance)}</span>
                           </div>
                         ))}
                       </td>
-                    <td className="py-2 px-4 text-blue-500 underline">
-                    <a
-                      href={getOrderLink(order.orderHash)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {`${order.orderHash.slice(0, 6)}...${order.orderHash.slice(
-                        -4
-                      )}`}
-                    </a>
+                      {/* Input Change 24H */}
+                      <td className="px-4 py-3 text-sm">
+                        {order.inputChange24h.map((change, index) => (
+                          <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
+                            <span className="font-semibold">{change.inputToken}</span>
+                            <span className={`font-medium ${change.inputPercentageChange >= 0 ? "text-green-600" : "text-red-600"}`}>
+                              {`${change.inputBalanceChange} (${parseFloat(change.inputPercentageChange).toFixed(2)}%)`}
+                            </span>
+                          </div>
+                        ))}
+                      </td>
+
+                      {/* Output Change 24H */}
+                      <td className="px-4 py-3 text-sm">
+                        {order.outputChange24h.map((change, index) => (
+                          <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
+                            <span className="font-semibold">{change.outputToken}</span>
+                            <span className={`font-medium ${change.outputPercentageChange >= 0 ? "text-green-600" : "text-red-600"}`}>
+                              {`${change.outputBalanceChange} (${parseFloat(change.outputPercentageChange).toFixed(2)}%)`}
+                            </span>
+                          </div>
+                        ))}
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      {/* Input Deposits/Withdrawals */}
+                      <td className="px-4 py-3 text-sm">
+                        {loadingDeposits ? (
+                          <span>Loading...</span>
+                        ) : (
+                          order?.inputDepositsWithdraws?.map((input, idx) => (
+                            <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                              <span className="font-semibold">{input.inputToken}</span>
+                              <div className="flex flex-col text-right">
+                                <span className="text-green-600 font-medium">+{input.totalVaultDeposits}</span>
+                                <span className="text-red-600 font-medium">{input.totalVaultWithdrawals}</span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </td>
+
+                      {/* Output Deposits/Withdrawals */}
+                      <td className="px-4 py-3 text-sm">
+                        {loadingDeposits ? (
+                          <span>Loading...</span>
+                        ) : (
+                          order?.outputDepositsWithdraws?.map((output, idx) => (
+                            <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                              <span className="font-semibold">{output.outputToken}</span>
+                              <div className="flex flex-col text-right">
+                                <span className="text-green-600 font-medium">+{output.totalVaultDeposits}</span>
+                                <span className="text-red-600 font-medium">{output.totalVaultWithdrawals}</span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </td>
+
+                      {/* Input Vault Differential (Amount & Percentage) */}
+                      <td className="px-4 py-3 text-sm">
+                        {loadingDeposits ? (
+                          <span>Loading...</span>
+                        ) : (
+                          order?.inputDepositsWithdraws?.map((input, idx) => (
+                            <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                              <span className="font-semibold">{input.inputToken}</span>
+                              <div className="flex flex-col text-right">
+                                <span className="text-gray-800 font-medium">{input.vaultDifferential}</span>
+                                <span className={`font-medium ${input.vaultDifferentialPercentage >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                  {input.vaultDifferentialPercentage}%
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </td>
+
+                      {/* Output Vault Differential (Amount & Percentage) */}
+                      <td className="px-4 py-3 text-sm">
+                        {loadingDeposits ? (
+                          <span>Loading...</span>
+                        ) : (
+                          order?.outputDepositsWithdraws?.map((output, idx) => (
+                            <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                              <span className="font-semibold">{output.outputToken}</span>
+                              <div className="flex flex-col text-right">
+                                <span className="text-gray-800 font-medium">{output.vaultDifferential}</span>
+                                <span className={`font-medium ${output.vaultDifferentialPercentage >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                  {output.vaultDifferentialPercentage}%
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </td>
+                    </>
+
+                  )}
+
+                  <td className="py-2 px-4 text-blue-500 underline">
+                        <a href={getOrderLink(order.orderHash)} target="_blank" rel="noopener noreferrer">
+                          {`${order.orderHash.slice(0, 6)}...${order.orderHash.slice(-4)}`}
+                        </a>
                   </td>
-                  </tr>
-                );
-              })}
+                </tr>
+              ))}
             </tbody>
         </table>
       </div>
@@ -531,47 +786,6 @@
                 "trades",
             );
             order["trades"] = trades.sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp))
-            ordersWithTrades[i] = order
-        }
-
-        
-        for(let i = 0; i < ordersWithTrades.length; i++){
-            let order = ordersWithTrades[i]
-            for(let i = 0; i < order.inputs.length; i++){
-              let input = order.inputs[i]
-              const deposits = await fetchAllPaginatedData(
-                endpoint,
-                vaultDepositsQuery,
-                {vaultId: input.id},
-                "deposits"
-              )
-              input["deposits"] = deposits
-              const withdrawals = await fetchAllPaginatedData(
-                endpoint,
-                vaultWithdrawalQuery,
-                {vaultId: input.id},
-                "withdrawals"
-              )
-              input["withdrawals"] = withdrawals
-            }
-
-            for(let i = 0; i < order.outputs.length; i++){
-              let output = order.outputs[i]
-              const deposits = await fetchAllPaginatedData(
-                endpoint,
-                vaultDepositsQuery,
-                {vaultId: output.id},
-                "deposits"
-              )
-              output["deposits"] = deposits
-              const withdrawals = await fetchAllPaginatedData(
-                endpoint,
-                vaultWithdrawalQuery,
-                {vaultId: output.id},
-                "withdrawals"
-              )
-              output["withdrawals"] = withdrawals
-            }
             ordersWithTrades[i] = order
         }
         return ordersWithTrades
@@ -626,7 +840,7 @@
         {/* New Native Header */}
         <div className="bg-gray-800 text-white p-4 flex flex-col md:flex-row items-center justify-between rounded-lg shadow-lg">
           {/* Left Side: Header */}
-          <h1 className="text-lg font-semibold uppercase tracking-wide">Market Reports</h1>
+          <h1 className="text-lg font-semibold uppercase tracking-wide">Order List</h1>
     
           {/* Right Side: Filters */}
           <div className="flex flex-wrap items-center gap-4 mt-2 md:mt-0">

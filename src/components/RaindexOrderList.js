@@ -3,150 +3,193 @@
   import { fetchAndFilterOrders,fetchTradesQuery, tokenConfig, networkConfig, fetchAllPaginatedData, vaultDepositsQuery, vaultWithdrawalQuery } from "raindex-reports"
   import { ethers } from "ethers";
 
-  const OrdersTable = ({orders }) => {
-    
-    const now = Math.floor(Date.now() / 1000);
+  const now = Math.floor(Date.now() / 1000);
 
-    const formatTimestamp = (timestamp) => {
-      return new Date(timestamp * 1000).toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      });
-    };
+  const formatTimestamp = (timestamp) => {
+    return new Date(timestamp * 1000).toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  };
 
-    const formatBalance = (balance) => {
-      const num = parseFloat(balance);
-      if (num >= 1e6) return (num / 1e6).toFixed(2) + "M";
-      if (num >= 1e3) return (num / 1e3).toFixed(2) + "K";
-      return num.toFixed(2);
-    };
+  const formatBalance = (balance) => {
+    const num = parseFloat(balance);
+    if (num >= 1e6) return (num / 1e6).toFixed(2) + "M";
+    if (num >= 1e3) return (num / 1e3).toFixed(2) + "K";
+    return num.toFixed(2);
+  };
 
-    const transformedOrders = (orders) => {
-      return orders.map((order) => {
-          const trades = order.trades || [];
-          const tradeTimestamps = trades.map((t) => parseInt(t.timestamp));
+  const calculateTotalVolume = (trades) => {
+      const tokenVolumes = {};
 
-          const lastTrade = tradeTimestamps.length > 0 ? formatTimestamp(Math.max(...tradeTimestamps)) : "N/A";
-          const firstTrade = tradeTimestamps.length > 0 ? formatTimestamp(Math.min(...tradeTimestamps)) : "N/A";
+      trades.forEach(trade => {
+          // Process output vault balance change (tokens being sent)
+          if (trade.outputVaultBalanceChange) {
+              const { vault, amount } = trade.outputVaultBalanceChange;
+              if (vault && vault.token) {
+                  const { symbol, decimals } = vault.token;
+                  const volume = parseFloat(amount) / Math.pow(10, decimals);
 
-          const trades24h = trades.filter((trade) => now - parseInt(trade.timestamp) <= 86400);
-
-          // Input Balances
-          const inputBalances = order.inputs.map((input) => {
-            return {
-              inputToken : input.token.symbol,
-              inputTokenBalance: parseFloat(ethers.utils.formatUnits(input.balance, input.token.decimals)).toFixed(4)
-            }
-          });
-
-          // Output Balances
-          const outputBalances = order.outputs.map((output) => {
-            return {
-              outputToken: output.token.symbol,
-              outputTokenBalance: parseFloat(ethers.utils.formatUnits(output.balance, output.token.decimals)).toFixed(4)
-            }
-          });
-
-          // Calculate input balance change percentage in last 24 hours (with vault token matching)
-          const inputChange24h = order.inputs.map((input) => {
-            const filteredTrades = trades24h
-              .sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
-
-            if (filteredTrades.length === 0) {
-              return {
-                inputToken : input.token.symbol,
-                inputBalanceChange : 0,
-                inputPercentageChange : 0
+                  if (!tokenVolumes[symbol]) {
+                      tokenVolumes[symbol] = 0;
+                  }
+                  tokenVolumes[symbol] += Math.abs(volume);
               }
-            }
+          }
 
-            const oldestTrade = filteredTrades[0];
-            const latestTrade = filteredTrades[filteredTrades.length - 1];
-            
-            const oldBalance = parseFloat(
-              input.token.address === oldestTrade.inputVaultBalanceChange?.vault.token.address
-                ? oldestTrade.inputVaultBalanceChange?.newVaultBalance || "0"
-                : oldestTrade.outputVaultBalanceChange?.newVaultBalance || "0"
-            );
-          
-            const newBalance = parseFloat(
-              input.token.address === latestTrade.inputVaultBalanceChange?.vault.token.address
-                ? latestTrade.inputVaultBalanceChange?.newVaultBalance || "0"
-                : latestTrade.outputVaultBalanceChange?.newVaultBalance || "0"
-            );
-            
-            const balanceChange = (newBalance - oldBalance)
-            const percentageChange = oldBalance > 0 ? (balanceChange / oldBalance) * 100 : 0;
-            const balanceChangeBigNum = ethers.BigNumber.from(balanceChange.toLocaleString('fullwide', { useGrouping: false }))
-            const formattedBalanceChange = parseFloat(ethers.utils.formatUnits(balanceChangeBigNum,input.token.decimals).toString()).toFixed(2)
+          // Process input vault balance change (tokens being received)
+          if (trade.inputVaultBalanceChange) {
+              const { vault, amount } = trade.inputVaultBalanceChange;
+              if (vault && vault.token) {
+                  const { symbol, decimals } = vault.token;
+                  const volume = parseFloat(amount) / Math.pow(10, decimals);
 
-            return {
-              inputToken : input.token.symbol,
-              inputBalanceChange : formattedBalanceChange,
-              inputPercentageChange : percentageChange.toFixed(2)
-            }
-          });
-
-          // Calculate output balance change percentage in last 24 hours (with vault token matching)
-          const outputChange24h = order.outputs.map((output) => {
-            const filteredTrades = trades24h
-              .sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
-
-            if (filteredTrades.length === 0){
-              return {
-                outputToken : output.token.symbol,
-                outputBalanceChange : 0,
-                outputPercentageChange : 0
+                  if (!tokenVolumes[symbol]) {
+                      tokenVolumes[symbol] = 0;
+                  }
+                  tokenVolumes[symbol] += Math.abs(volume);
               }
-            }
-
-            const oldestTrade = filteredTrades[0];
-            const latestTrade = filteredTrades[filteredTrades.length - 1];
-
-            const oldBalance = parseFloat(
-              output.token.address === oldestTrade.outputVaultBalanceChange?.vault.token.address
-                ? oldestTrade.outputVaultBalanceChange?.newVaultBalance || "0"
-                : oldestTrade.inputVaultBalanceChange?.newVaultBalance || "0"
-            );
-
-            const newBalance = parseFloat(
-              output.token.address === latestTrade.outputVaultBalanceChange?.vault.token.address
-                ? latestTrade.outputVaultBalanceChange?.newVaultBalance || "0"
-                : latestTrade.inputVaultBalanceChange?.newVaultBalance || "0"
-            );
-            
-            const balanceChange = (newBalance - oldBalance)
-            const percentageChange = oldBalance > 0 ? (balanceChange / oldBalance) * 100 : 0;
-            const balanceChangeBigNum = ethers.BigNumber.from(balanceChange.toLocaleString('fullwide', { useGrouping: false }))
-            const formattedBalanceChange = parseFloat(ethers.utils.formatUnits(balanceChangeBigNum,output.token.decimals).toString()).toFixed(2)
-            return {
-              outputToken : output.token.symbol,
-              outputBalanceChange : formattedBalanceChange,
-              outputPercentageChange : percentageChange.toFixed(2)
-            }
-          }) 
-
-          return {
-            network: order.network,
-            orderHash: order.orderHash,
-            inputs: order.inputs,
-            outputs: order.outputs,
-            trades: order.trades || [],
-            trades24h: trades24h.length,
-            lastTrade: lastTrade,
-            firstTrade: firstTrade,
-            inputBalances: inputBalances,
-            outputBalances: outputBalances,
-            inputChange24h: inputChange24h,
-            outputChange24h: outputChange24h
           }
       });
-    } 
-    
+
+      // Convert the object into an array format
+      return Object.entries(tokenVolumes).map(([symbol, volume]) => ({
+          token: symbol,
+          totalVolume: volume.toFixed(4) // Format to 4 decimal places
+      }));
+  }
+
+  const transformedOrders = (orders) => {
+    return orders.map((order) => {
+        const trades = order.trades || [];
+        console.log(`${order.orderHash} : ${JSON.stringify(trades)}`)
+        const tradeTimestamps = trades.map((t) => parseInt(t.timestamp));
+
+        const lastTrade = tradeTimestamps.length > 0 ? formatTimestamp(Math.max(...tradeTimestamps)) : "N/A";
+        const firstTrade = tradeTimestamps.length > 0 ? formatTimestamp(Math.min(...tradeTimestamps)) : "N/A";
+
+        const trades24h = trades.filter((trade) => now - parseInt(trade.timestamp) <= 86400);
+
+        // Input Balances
+        const inputBalances = order.inputs.map((input) => {
+          return {
+            inputToken : input.token.symbol,
+            inputTokenBalance: parseFloat(ethers.utils.formatUnits(input.balance, input.token.decimals)).toFixed(4)
+          }
+        });
+
+        // Output Balances
+        const outputBalances = order.outputs.map((output) => {
+          return {
+            outputToken: output.token.symbol,
+            outputTokenBalance: parseFloat(ethers.utils.formatUnits(output.balance, output.token.decimals)).toFixed(4)
+          }
+        });
+
+        // Calculate input balance change percentage in last 24 hours (with vault token matching)
+        const inputChange24h = order.inputs.map((input) => {
+          const filteredTrades = trades24h
+            .sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
+
+          if (filteredTrades.length === 0) {
+            return {
+              inputToken : input.token.symbol,
+              inputBalanceChange : 0,
+              inputPercentageChange : 0
+            }
+          }
+
+          const oldestTrade = filteredTrades[0];
+          const latestTrade = filteredTrades[filteredTrades.length - 1];
+          
+          const oldBalance = parseFloat(
+            input.token.address === oldestTrade.inputVaultBalanceChange?.vault.token.address
+              ? oldestTrade.inputVaultBalanceChange?.newVaultBalance || "0"
+              : oldestTrade.outputVaultBalanceChange?.newVaultBalance || "0"
+          );
+        
+          const newBalance = parseFloat(
+            input.token.address === latestTrade.inputVaultBalanceChange?.vault.token.address
+              ? latestTrade.inputVaultBalanceChange?.newVaultBalance || "0"
+              : latestTrade.outputVaultBalanceChange?.newVaultBalance || "0"
+          );
+          
+          const balanceChange = (newBalance - oldBalance)
+          const percentageChange = oldBalance > 0 ? (balanceChange / oldBalance) * 100 : 0;
+          const balanceChangeBigNum = ethers.BigNumber.from(balanceChange.toLocaleString('fullwide', { useGrouping: false }))
+          const formattedBalanceChange = parseFloat(ethers.utils.formatUnits(balanceChangeBigNum,input.token.decimals).toString()).toFixed(2)
+
+          return {
+            inputToken : input.token.symbol,
+            inputBalanceChange : formattedBalanceChange,
+            inputPercentageChange : percentageChange.toFixed(2)
+          }
+        });
+
+        // Calculate output balance change percentage in last 24 hours (with vault token matching)
+        const outputChange24h = order.outputs.map((output) => {
+          const filteredTrades = trades24h
+            .sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
+
+          if (filteredTrades.length === 0){
+            return {
+              outputToken : output.token.symbol,
+              outputBalanceChange : 0,
+              outputPercentageChange : 0
+            }
+          }
+
+          const oldestTrade = filteredTrades[0];
+          const latestTrade = filteredTrades[filteredTrades.length - 1];
+
+          const oldBalance = parseFloat(
+            output.token.address === oldestTrade.outputVaultBalanceChange?.vault.token.address
+              ? oldestTrade.outputVaultBalanceChange?.newVaultBalance || "0"
+              : oldestTrade.inputVaultBalanceChange?.newVaultBalance || "0"
+          );
+
+          const newBalance = parseFloat(
+            output.token.address === latestTrade.outputVaultBalanceChange?.vault.token.address
+              ? latestTrade.outputVaultBalanceChange?.newVaultBalance || "0"
+              : latestTrade.inputVaultBalanceChange?.newVaultBalance || "0"
+          );
+          
+          const balanceChange = (newBalance - oldBalance)
+          const percentageChange = oldBalance > 0 ? (balanceChange / oldBalance) * 100 : 0;
+          const balanceChangeBigNum = ethers.BigNumber.from(balanceChange.toLocaleString('fullwide', { useGrouping: false }))
+          const formattedBalanceChange = parseFloat(ethers.utils.formatUnits(balanceChangeBigNum,output.token.decimals).toString()).toFixed(2)
+          return {
+            outputToken : output.token.symbol,
+            outputBalanceChange : formattedBalanceChange,
+            outputPercentageChange : percentageChange.toFixed(2)
+          }
+        }) 
+
+        return {
+          network: order.network,
+          orderHash: order.orderHash,
+          inputs: order.inputs,
+          outputs: order.outputs,
+          trades: trades,
+          trades24h: trades24h.length,
+          lastTrade: lastTrade,
+          firstTrade: firstTrade,
+          inputBalances: inputBalances,
+          outputBalances: outputBalances,
+          inputChange24h: inputChange24h,
+          outputChange24h: outputChange24h,
+          volumeTotal : calculateTotalVolume(trades),
+          volume24H :  calculateTotalVolume(trades24h)
+        }
+    });
+  }
+
+  const OrdersTable = ({orders }) => {
+
     const [sortedOrders, setSortedOrders] = useState([]);
     const [activeTab, setActiveTab] = useState("main");
     const [depositsData, setDepositsData] = useState(null);
@@ -191,7 +234,7 @@
         const fetchData = async () => {
           try {
             console.log("Fetching daily data...");
-            const dailyDataResponse = await fetchDailyData();
+            const dailyDataResponse = await fetchDataForElapsedTime(86400);
             console.log("Fetched Daily Data:", dailyDataResponse);
             setDailyData(dailyDataResponse);
           } catch (error) {
@@ -211,7 +254,7 @@
         
         const fetchData = async () => {
           try {
-            const weeklyData = await fetchWeeklyData();
+            const weeklyData = await fetchDataForElapsedTime(86400 * 7);
             setWeeklyData(weeklyData);
           } catch (error) {
             console.error("Error fetching weekly data:", error);
@@ -276,6 +319,38 @@
             return bBalance - aBalance;
           });
           break;
+        
+          case "vol24hAsc":
+            sorted.sort((a, b) => {
+              const aBalance = parseFloat(a.volume24H.reduce((sum, input) => sum + parseFloat(input.totalVolume || "0"), 0));
+              const bBalance = parseFloat(b.volume24H.reduce((sum, input) => sum + parseFloat(input.totalVolume || "0"), 0));
+              return aBalance - bBalance;
+            });
+            break;
+      
+          case "vol24hDesc":
+            sorted.sort((a, b) => {
+              const aBalance = parseFloat(a.volume24H.reduce((sum, input) => sum + parseFloat(input.totalVolume || "0"), 0));
+              const bBalance = parseFloat(b.volume24H.reduce((sum, input) => sum + parseFloat(input.totalVolume || "0"), 0));
+              return bBalance - aBalance;
+            });
+            break;
+      
+          case "volTotalAsc":
+            sorted.sort((a, b) => {
+              const aBalance = parseFloat(a.volumeTotal.reduce((sum, output) => sum + parseFloat(output.totalVolume || "0"), 0));
+              const bBalance = parseFloat(b.volumeTotal.reduce((sum, output) => sum + parseFloat(output.totalVolume || "0"), 0));
+              return aBalance - bBalance;
+            });
+            break;
+      
+          case "volTotalDesc":
+            sorted.sort((a, b) => {
+              const aBalance = parseFloat(a.volumeTotal.reduce((sum, output) => sum + parseFloat(output.totalVolume || "0"), 0));
+              const bBalance = parseFloat(b.volumeTotal.reduce((sum, output) => sum + parseFloat(output.totalVolume || "0"), 0));
+              return bBalance - aBalance;
+            });
+            break;
     
         default:
           sorted = [...orders]; // Reset to original order if no valid sortType is selected
@@ -461,90 +536,48 @@
     }
     `
 
-    const fetchDailyData = async() => {
+    const fetchDataForElapsedTime = async(elapsedTime) => {
        
-       const networksArray = Object.keys(networkConfig)
-
-       let allNetworksTrades = []
-       for(let i = 0; i < networksArray.length; i++){
-         const network = networksArray[i]
-         const endpoint = networkConfig[network].subgraphUrl
-         const tradesLast24h = await fetchAllPaginatedData(
-          endpoint,
-          fetchAllNetworksOrderQuery,
-          {timestampGt: now - 86400},
-          "trades"
-         )
-         const groupedTrades = tradesLast24h.reduce((acc, trade) => {
-            const orderHash = trade.order.orderHash;
-    
-            if (!acc[orderHash]) {
-            acc[orderHash] = {
-                orderHash: orderHash,
-                inputs: trade.order.inputs,
-                outputs: trade.order.outputs,
-                trades: [],
-            };
-            }
-    
-            acc[orderHash].trades.push({
-            timestamp: trade.timestamp,
-            outputVaultBalanceChange: trade.outputVaultBalanceChange,
-            inputVaultBalanceChange: trade.inputVaultBalanceChange,
-            });
-    
-            return acc;
-          }, {});
-        const networkTrades = Object.values(groupedTrades).map((order) => ({
-            ...order,
-            network: network
-          }))
-          allNetworksTrades.push(...networkTrades);
-       }
-       return transformedOrders(allNetworksTrades)
-    }
-
-    const fetchWeeklyData = async() => {
       const networksArray = Object.keys(networkConfig)
 
-       let allNetworksTrades = []
-       for(let i = 0; i < networksArray.length; i++){
-         const network = networksArray[i]
-         const endpoint = networkConfig[network].subgraphUrl
-         const tradesLast24h = await fetchAllPaginatedData(
-          endpoint,
-          fetchAllNetworksOrderQuery,
-          {timestampGt: now - (86400 * 7)},
-          "trades"
-         )
-         const groupedTrades = tradesLast24h.reduce((acc, trade) => {
-            const orderHash = trade.order.orderHash;
-    
-            if (!acc[orderHash]) {
-            acc[orderHash] = {
-                orderHash: orderHash,
-                inputs: trade.order.inputs,
-                outputs: trade.order.outputs,
-                trades: [],
-            };
-            }
-    
-            acc[orderHash].trades.push({
-            timestamp: trade.timestamp,
-            outputVaultBalanceChange: trade.outputVaultBalanceChange,
-            inputVaultBalanceChange: trade.inputVaultBalanceChange,
-            });
-    
-            return acc;
-          }, {});
-        const networkTrades = Object.values(groupedTrades).map((order) => ({
-            ...order,
-            network: network
-          }))
-          allNetworksTrades.push(...networkTrades);
-       }
-       return transformedOrders(allNetworksTrades)
-    }
+      let allNetworksTrades = []
+      for(let i = 0; i < networksArray.length; i++){
+        const network = networksArray[i]
+        const endpoint = networkConfig[network].subgraphUrl
+        const tradesLast24h = await fetchAllPaginatedData(
+         endpoint,
+         fetchAllNetworksOrderQuery,
+         {timestampGt: now - elapsedTime},
+         "trades"
+        )
+        const groupedTrades = tradesLast24h.reduce((acc, trade) => {
+           const orderHash = trade.order.orderHash;
+   
+           if (!acc[orderHash]) {
+           acc[orderHash] = {
+               orderHash: orderHash,
+               inputs: trade.order.inputs,
+               outputs: trade.order.outputs,
+               trades: [],
+           };
+           }
+   
+           acc[orderHash].trades.push({
+           timestamp: trade.timestamp,
+           outputVaultBalanceChange: trade.outputVaultBalanceChange,
+           inputVaultBalanceChange: trade.inputVaultBalanceChange,
+           });
+   
+           return acc;
+         }, {});
+       const networkTrades = Object.values(groupedTrades).map((order) => ({
+           ...order,
+           network: network
+         }))
+         allNetworksTrades.push(...networkTrades);
+      }
+      return transformedOrders(allNetworksTrades)
+   }
   
     const getOrderLink = (orderHash, orderNetwork) =>
       `https://raindex.finance/my-strategies/${orderHash}-${orderNetwork}`;
@@ -654,6 +687,32 @@
                   >
                     <option value="outputChangeAsc">Output Δ 24h ↑</option>
                     <option value="outputChangeDesc">Output Δ 24h ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="vol24hAsc">Volume 24h ↑</option>
+                    <option value="vol24hDesc">Volume 24h ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="volTotalAsc">Volume Total ↑</option>
+                    <option value="volTotalDesc">Volume Total ↓</option>
                   </select>
                 </th>
               </>
@@ -777,6 +836,39 @@
                                   </div>
                                 ))}
                               </td>
+
+                              {/* 24H Volume */}
+                              <td className="px-4 py-3 text-sm">
+                                {order.volume24H.length > 0 ? (
+                                  order.volume24H.map((input, index) => (
+                                    <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                      <span className="font-semibold">{input.token}</span>
+                                      <span className="text-gray-800">{formatBalance(input.totalVolume)}</span>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                                            N/A
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Total Volume */}
+                              <td className="px-4 py-3 text-sm">
+                                {order.volumeTotal.length > 0 ? (
+                                  order.volumeTotal.map((output, index) => (
+                                    <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                      <span className="font-semibold">{output.token}</span>
+                                      <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                                            N/A
+                                  </div>
+                                )}
+                              </td>
+
                             </>
                           )
                         }
@@ -935,6 +1027,38 @@
                                     </div>
                                   ))}
                                 </td>
+                                {/* 24H Volume */}
+                                <td className="px-4 py-3 text-sm">
+                                  {order.volume24H.length > 0 ? (
+                                    order.volume24H.map((input, index) => (
+                                      <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                        <span className="font-semibold">{input.token}</span>
+                                        <span className="text-gray-800">{formatBalance(input.totalVolume)}</span>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                                            N/A
+                                      </div>
+                                  )}
+                                </td>
+
+                                {/* Total Volume */}
+                                <td className="px-4 py-3 text-sm">
+                                  {order.volumeTotal.length > 0 ? (
+                                    order.volumeTotal.map((output, index) => (
+                                      <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                        <span className="font-semibold">{output.token}</span>
+                                        <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                                            N/A
+                                      </div>
+                                  )}
+                                </td>
+
                                 <td className="py-2 px-4 text-blue-500 underline">
                                       <a href={getOrderLink(order.orderHash, order.network)} target="_blank" rel="noopener noreferrer">
                                         {`${order.orderHash.slice(0, 6)}...${order.orderHash.slice(-4)}`}
@@ -1016,6 +1140,38 @@
                                     </div>
                                   ))}
                                 </td>
+                                {/* 24H Volume */}
+                                  <td className="px-4 py-3 text-sm">
+                                    {order.volume24H.length > 0 ? (
+                                      order.volume24H.map((input, index) => (
+                                        <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                          <span className="font-semibold">{input.token}</span>
+                                          <span className="text-gray-800">{formatBalance(input.totalVolume)}</span>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                                            N/A
+                                      </div>
+                                    )}
+                                  </td>
+
+                                  {/* Total Volume */}
+                                  <td className="px-4 py-3 text-sm">
+                                    {order.volumeTotal.length > 0 ? (
+                                      order.volumeTotal.map((output, index) => (
+                                        <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                          <span className="font-semibold">{output.token}</span>
+                                          <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                                            N/A
+                                      </div>
+                                    )}
+                                  </td>
+
                                 <td className="py-2 px-4 text-blue-500 underline">
                                       <a href={getOrderLink(order.orderHash, order.network)} target="_blank" rel="noopener noreferrer">
                                         {`${order.orderHash.slice(0, 6)}...${order.orderHash.slice(-4)}`}

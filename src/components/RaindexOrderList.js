@@ -1,6 +1,6 @@
 
   import React, { useState, useEffect, useMemo } from "react";
-  import { fetchAndFilterOrders,fetchTradesQuery, tokenConfig, networkConfig, fetchAllPaginatedData, vaultDepositsQuery, vaultWithdrawalQuery } from "raindex-reports"
+  import { fetchAndFilterOrders,fetchTradesQuery, tokenConfig, networkConfig, fetchAllPaginatedData, vaultDepositsQuery, vaultWithdrawalQuery, getTokenPriceUsd } from "raindex-reports"
   import { ethers } from "ethers";
 
   const now = Math.floor(Date.now() / 1000);
@@ -66,11 +66,10 @@
   const transformedOrders = (orders) => {
     return orders.map((order) => {
         const trades = order.trades || [];
-        console.log(`${order.orderHash} : ${JSON.stringify(trades)}`)
         const tradeTimestamps = trades.map((t) => parseInt(t.timestamp));
 
-        const lastTrade = tradeTimestamps.length > 0 ? formatTimestamp(Math.max(...tradeTimestamps)) : "N/A";
-        const firstTrade = tradeTimestamps.length > 0 ? formatTimestamp(Math.min(...tradeTimestamps)) : "N/A";
+        const lastTrade = tradeTimestamps.length > 0 ? Math.max(...tradeTimestamps) : 0;
+        const firstTrade = tradeTimestamps.length > 0 ? Math.min(...tradeTimestamps) : 0;
 
         const trades24h = trades.filter((trade) => now - parseInt(trade.timestamp) <= 86400);
 
@@ -168,9 +167,9 @@
             outputPercentageChange : percentageChange.toFixed(2)
           }
         }) 
-
         return {
           network: order.network,
+          timestampAdded: order.timestampAdded,
           orderHash: order.orderHash,
           inputs: order.inputs,
           outputs: order.outputs,
@@ -188,19 +187,124 @@
     });
   }
 
+  const fetchAllNetworksOrderQuery = `query OrderTakesListQuery($skip: Int = 0, $first: Int = 1000, $timestampGt: Int!) {
+    trades(orderBy: timestamp, orderDirection: desc, skip: $skip, first: $first, where: {
+      timestamp_gt: $timestampGt
+    }) {
+      timestamp
+      id
+      order {
+        orderHash
+        outputs {
+          id
+          token {
+            id
+            address
+            name
+            symbol
+            decimals
+          }
+          balance
+          vaultId
+        }
+        inputs {
+          id
+          token {
+            id
+            address
+            name
+            symbol
+            decimals
+          }
+          balance
+          vaultId
+        }
+      }
+      outputVaultBalanceChange {
+        amount
+        oldVaultBalance
+        newVaultBalance
+        vault {
+          token {
+            id
+            address
+            name
+            symbol
+            decimals
+          }
+        }
+      }
+      inputVaultBalanceChange {
+        vault {
+          token {
+            id
+            address
+            name
+            symbol
+            decimals
+          }
+        }
+        amount
+        oldVaultBalance
+        newVaultBalance
+      }
+    }
+  }
+  `
+
+  const fetchDataForElapsedTime = async(elapsedTime) => {
+       
+    const networksArray = Object.keys(networkConfig)
+
+    let allNetworksTrades = []
+    for(let i = 0; i < networksArray.length; i++){
+      const network = networksArray[i]
+      const endpoint = networkConfig[network].subgraphUrl
+      const tradesLast24h = await fetchAllPaginatedData(
+       endpoint,
+       fetchAllNetworksOrderQuery,
+       {timestampGt: now - elapsedTime},
+       "trades"
+      )
+      const groupedTrades = tradesLast24h.reduce((acc, trade) => {
+         const orderHash = trade.order.orderHash;
+ 
+         if (!acc[orderHash]) {
+         acc[orderHash] = {
+             orderHash: orderHash,
+             inputs: trade.order.inputs,
+             outputs: trade.order.outputs,
+             trades: [],
+         };
+         }
+ 
+         acc[orderHash].trades.push({
+         timestamp: trade.timestamp,
+         outputVaultBalanceChange: trade.outputVaultBalanceChange,
+         inputVaultBalanceChange: trade.inputVaultBalanceChange,
+         });
+ 
+         return acc;
+       }, {});
+     const networkTrades = Object.values(groupedTrades).map((order) => ({
+         ...order,
+         network: network
+       }))
+       allNetworksTrades.push(...networkTrades);
+    }
+    return transformedOrders(allNetworksTrades)
+  }
+
+  const getOrderLink = (orderHash, orderNetwork) =>
+    `https://raindex.finance/my-strategies/${orderHash}-${orderNetwork}`;
+
+  export { formatTimestamp, formatBalance, calculateTotalVolume, transformedOrders , fetchDataForElapsedTime, fetchAllNetworksOrderQuery, getOrderLink};
   const OrdersTable = ({orders }) => {
 
     const [sortedOrders, setSortedOrders] = useState([]);
     const [activeTab, setActiveTab] = useState("trades");
     const [depositsData, setDepositsData] = useState(null);
     const [loadingDeposits, setLoadingDeposits] = useState(false);
-
-    const [dailyData, setDailyData] = useState([]);
-    const [dailyDataLoading, setDailyDataLoading] = useState(false);
-
-    const [weeklyData, setWeeklyData] = useState([]);
-    const [weeklyDataLoading, setWeeklyDataLoading] = useState(false);
-
     const transformedSortedOrders = useMemo(() => transformedOrders(orders), [orders]);
 
     useEffect(() => {
@@ -208,7 +312,7 @@
     }, [transformedSortedOrders]);
 
     useEffect(() => {
-      if (activeTab === "vault" && !depositsData) {
+      if ((activeTab === "vault" || activeTab === "p&l") && !depositsData) {
         setLoadingDeposits(true);
         
         const fetchData = async () => {
@@ -226,47 +330,7 @@
         fetchData();
       }
     }, [activeTab]);
-    
-    useEffect(() => {
-      if (activeTab === "24h" && dailyData.length === 0) {
-        setDailyDataLoading(true);
-        
-        const fetchData = async () => {
-          try {
-            console.log("Fetching daily data...");
-            const dailyDataResponse = await fetchDataForElapsedTime(86400);
-            console.log("Fetched Daily Data:", dailyDataResponse);
-            setDailyData(dailyDataResponse);
-          } catch (error) {
-            console.error("Error setting 24h data:", error);
-          } finally {
-            setDailyDataLoading(false);
-          }
-        };
-    
-        fetchData();
-      }
-    }, [activeTab, dailyData]);
-
-    useEffect(() => {
-      if (activeTab === "weekly" && weeklyData.length === 0) {
-        setWeeklyDataLoading(true);
-        
-        const fetchData = async () => {
-          try {
-            const weeklyData = await fetchDataForElapsedTime(86400 * 7);
-            setWeeklyData(weeklyData);
-          } catch (error) {
-            console.error("Error fetching weekly data:", error);
-          } finally {
-            setWeeklyDataLoading(false);
-          }
-        };
-    
-        fetchData();
-      }
-    }, [activeTab, weeklyData]);
-    
+  
 
     const handleSortByVaultBalance = (orders, sortType) => {
       let sorted = [...orders];
@@ -448,15 +512,10 @@
           sorted = [...orders]; // Reset to original order if no valid sortType is selected
       }
     
-      if (activeTab === "24h") {
-        setDailyData(sorted);
-      } else if (activeTab === "weekly") {
-        setWeeklyData(sorted);
-      } else {
-        setSortedOrders(sorted);
-      }
+      
+      setSortedOrders(sorted);
+      
     };
-    
     
     const fetchDepositsAndWithdrawals = async (ordersWithTrades) => {
         
@@ -471,6 +530,7 @@
               {vaultId: input.id},
               "deposits"
             )
+            input["usdPrice"] = await getTokenPriceUsd(input.token.address, input.token.symbol)
             input["deposits"] = deposits
             const withdrawals = await fetchAllPaginatedData(
               endpoint,
@@ -489,6 +549,7 @@
               {vaultId: output.id},
               "deposits"
             )
+            output["usdPrice"] = await getTokenPriceUsd(output.token.address, output.token.symbol)
             output["deposits"] = deposits
             const withdrawals = await fetchAllPaginatedData(
               endpoint,
@@ -527,9 +588,11 @@
             ) / parseFloat(ethers.utils.formatUnits(totalVaultDeposits, input.token.decimals)) * 100
           ).toFixed(2) : "0.00";
 
+          console.log("input.usdPrice : ", input.usdPrice)
           const vaultData = {
             vaultId: input.id,
             inputToken: input.token.symbol,
+            inputTokenPriceUsd: input.usdPrice.currentPrice,
             totalVaultDeposits: parseFloat(ethers.utils.formatUnits(totalVaultDeposits, input.token.decimals)).toFixed(4),
             totalVaultWithdrawals: parseFloat(ethers.utils.formatUnits(totalVaultWithdrawals, input.token.decimals)).toFixed(4),
             currentVaultInputs: parseFloat(ethers.utils.formatUnits(currentVaultInputs, input.token.decimals)).toFixed(4),
@@ -568,9 +631,12 @@
             ) / parseFloat(ethers.utils.formatUnits(totalVaultDeposits, output.token.decimals)) * 100
           ).toFixed(2) : "0.00";
 
+          
+
           const vaultData = {
             vaultId: output.id,
             outputToken: output.token.symbol,
+            outputTokenPriceUsd: output.usdPrice.currentPrice,
             totalVaultDeposits: parseFloat(ethers.utils.formatUnits(totalVaultDeposits, output.token.decimals)).toFixed(4),
             totalVaultWithdrawals: parseFloat(ethers.utils.formatUnits(totalVaultWithdrawals, output.token.decimals)).toFixed(4),
             currentVaultBalance: parseFloat(ethers.utils.formatUnits(output.balance, output.token.decimals)).toFixed(4),
@@ -585,9 +651,22 @@
         return acc;
       }, []);
 
+      const totalDepositUsd = outputDepositsWithdraws.reduce((sum, output) => {
+        return sum + (parseFloat(output.totalVaultDeposits) * parseFloat(output.outputTokenPriceUsd));
+      }, 0);
 
-        return {
+      const totalInputsChange = inputDepositsWithdraws.reduce((sum, input) => {
+        return sum + (parseFloat(input.currentVaultInputs) * parseFloat(input.inputTokenPriceUsd));
+      }, 0);
+
+      const orderRoi = (totalInputsChange - totalDepositUsd).toFixed(2)
+      const orderRoiPercentage = (((totalInputsChange - totalDepositUsd) * 365 * 86400) / (now - order.timestampAdded)).toFixed(2)
+
+
+      return {
           ...order,
+          orderRoi,
+          orderRoiPercentage,
           inputDepositsWithdraws: inputDepositsWithdraws,
           outputDepositsWithdraws: outputDepositsWithdraws
         }
@@ -595,121 +674,10 @@
       return transformedOrders
     }
 
-    const fetchAllNetworksOrderQuery = `query OrderTakesListQuery($skip: Int = 0, $first: Int = 1000, $timestampGt: Int!) {
-      trades(orderBy: timestamp, orderDirection: desc, skip: $skip, first: $first, where: {
-        timestamp_gt: $timestampGt
-      }) {
-        timestamp
-        id
-        order {
-          orderHash
-          outputs {
-            id
-            token {
-              id
-              address
-              name
-              symbol
-              decimals
-            }
-            balance
-            vaultId
-          }
-          inputs {
-            id
-            token {
-              id
-              address
-              name
-              symbol
-              decimals
-            }
-            balance
-            vaultId
-          }
-        }
-        outputVaultBalanceChange {
-          amount
-          oldVaultBalance
-          newVaultBalance
-          vault {
-            token {
-              id
-              address
-              name
-              symbol
-              decimals
-            }
-          }
-        }
-        inputVaultBalanceChange {
-          vault {
-            token {
-              id
-              address
-              name
-              symbol
-              decimals
-            }
-          }
-          amount
-          oldVaultBalance
-          newVaultBalance
-        }
-      }
-    }
-    `
-
-    const fetchDataForElapsedTime = async(elapsedTime) => {
-       
-      const networksArray = Object.keys(networkConfig)
-
-      let allNetworksTrades = []
-      for(let i = 0; i < networksArray.length; i++){
-        const network = networksArray[i]
-        const endpoint = networkConfig[network].subgraphUrl
-        const tradesLast24h = await fetchAllPaginatedData(
-         endpoint,
-         fetchAllNetworksOrderQuery,
-         {timestampGt: now - elapsedTime},
-         "trades"
-        )
-        const groupedTrades = tradesLast24h.reduce((acc, trade) => {
-           const orderHash = trade.order.orderHash;
-   
-           if (!acc[orderHash]) {
-           acc[orderHash] = {
-               orderHash: orderHash,
-               inputs: trade.order.inputs,
-               outputs: trade.order.outputs,
-               trades: [],
-           };
-           }
-   
-           acc[orderHash].trades.push({
-           timestamp: trade.timestamp,
-           outputVaultBalanceChange: trade.outputVaultBalanceChange,
-           inputVaultBalanceChange: trade.inputVaultBalanceChange,
-           });
-   
-           return acc;
-         }, {});
-       const networkTrades = Object.values(groupedTrades).map((order) => ({
-           ...order,
-           network: network
-         }))
-         allNetworksTrades.push(...networkTrades);
-      }
-      return transformedOrders(allNetworksTrades)
-   }
-  
-    const getOrderLink = (orderHash, orderNetwork) =>
-      `https://raindex.finance/my-strategies/${orderHash}-${orderNetwork}`;
-    
     return (
       <div className="overflow-x-auto bg-white rounded-lg shadow-lg w-full">
         <div className="flex border-b border-gray-300 bg-gray-100 rounded-t-lg">
-          {["trades", "balance","vault", "24h", "weekly"].map((tab) => (
+          {["trades", "balance","vault", "p&l"].map((tab) => (
             <button
               key={tab}
               className={`px-6 py-3 text-sm font-medium transition-all ${
@@ -722,8 +690,7 @@
               {tab === "trades" ? "Trades" : 
               tab === "balance" ? "Balance Changes" : 
               tab === "vault" ? "Deposits & Withdrawals" : 
-              tab === "24h" ? "24h Activity" : 
-              "Weekly Activity"}
+              "Profit & Loss"}
             </button>
           ))}
         </div>
@@ -732,16 +699,17 @@
         <thead className="bg-gray-50 text-gray-800 text-sm font-semibold">
           <tr className="border-b border-gray-300">
             <th className="px-4 py-3 text-left">Network</th>
-            <th className="px-4 py-3 text-left">Last Trade</th>
-            <th className="px-4 py-3 text-left">First Trade</th>
+            
 
-            {(activeTab === "trades" || activeTab === "24h" || activeTab === "weekly") && (
+            {(activeTab === "trades") && (
               <>
+                <th className="px-4 py-3 text-left">Last Trade</th>
+                <th className="px-4 py-3 text-left">First Trade</th>
                 <th className="px-4 py-3 text-center">
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -754,7 +722,7 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -767,7 +735,7 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -780,7 +748,7 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -793,7 +761,7 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -806,7 +774,7 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -819,7 +787,7 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -832,7 +800,7 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -846,11 +814,13 @@
 
             {(activeTab === "balance") && (
               <>
+                <th className="px-4 py-3 text-left">Last Trade</th>
+                <th className="px-4 py-3 text-left">First Trade</th>
                 <th className="px-4 py-3 text-center">
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -863,7 +833,7 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -876,7 +846,7 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -889,7 +859,7 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -902,7 +872,7 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -915,7 +885,7 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -929,12 +899,13 @@
 
             {activeTab === "vault" && (
               <>
-
+                <th className="px-4 py-3 text-left">Last Trade</th>
+                <th className="px-4 py-3 text-left">First Trade</th>
                 <th className="px-4 py-3 text-center">
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -947,7 +918,7 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -960,7 +931,7 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -973,7 +944,7 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
@@ -983,6 +954,137 @@
                 </th>
 
                 <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="inputDepositWithdrawalsAsc">Input Deposits / Withdrawals ↑</option>
+                    <option value="inputDepositWithdrawalsDesc">Input Deposits / Withdrawals ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="outputDepositWithdrawalsAsc">Output Deposits / Withdrawals ↑</option>
+                    <option value="outputDepositWithdrawalsDesc">Output Deposits / Withdrawals ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="inputsAsc">Inputs ↑</option>
+                    <option value="inputsDesc">Inputs ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="differentialAsc">Change ↑</option>
+                    <option value="differentialDesc">Change ↓</option>
+                  </select>
+                </th>
+              </>
+            )}
+
+            {activeTab === "p&l" && (
+              <>
+                <th className="px-4 py-3 text-left">Trade Duration</th>
+                <th className="px-4 py-3 text-left">Order Duration</th>
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="outputAsc">Current Price ↑</option>
+                    <option value="outputDesc">Current Price ↓</option>
+                  </select>
+                </th>
+                <th className="px-4 py-3 text-center">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="totalTradesAsc">Total ↑</option>
+                    <option value="totalTradesDesc">Total ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="volTotalAsc">Volume Total ↑</option>
+                    <option value="volTotalDesc">Volume Total ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="inputAsc">Deposits ↑</option>
+                    <option value="inputDesc">Deposits ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="outputAsc">Inputs ↑</option>
+                    <option value="outputDesc">Inputs ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left text-gray-700 font-semibold bg-gray-100 border-b border-gray-300 uppercase tracking-wide">
+                  $ ROI
+                </th>
+                <th className="px-4 py-3 text-left text-gray-700 font-semibold bg-gray-100 border-b border-gray-300 uppercase tracking-wide">
+                  % ROI
+                </th>
+
+                
+
+                {/* <th className="px-4 py-3 text-left">
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
@@ -1032,9 +1134,12 @@
                     <option value="differentialAsc">Change ↑</option>
                     <option value="differentialDesc">Change ↓</option>
                   </select>
-                </th>
+                </th> */}
+
               </>
             )}
+
+            
             
             <th className="px-4 py-3 text-left">Hash</th>
           </tr>
@@ -1047,8 +1152,8 @@
                     {sortedOrders.map((order, index) => (
                       <tr key={index} className="border-t border-gray-300 text-gray-700">
                         <td className="px-4 py-3 text-sm">{order.network}</td>
-                        <td className="px-4 py-3 text-sm">{order.lastTrade}</td>
-                        <td className="px-4 py-3 text-sm">{order.firstTrade}</td>
+                        <td className="px-4 py-3 text-sm">{formatTimestamp(order.lastTrade)}</td>
+                        <td className="px-4 py-3 text-sm">{formatTimestamp(order.firstTrade)}</td>
                         <td className="px-4 py-3 text-sm text-center">{order.trades.length}</td>
                         <td className="px-4 py-3 text-sm text-center">{order.trades24h}</td>
 
@@ -1147,8 +1252,8 @@
                     {sortedOrders.map((order, index) => (
                       <tr key={index} className="border-t border-gray-300 text-gray-700">
                         <td className="px-4 py-3 text-sm">{order.network}</td>
-                        <td className="px-4 py-3 text-sm">{order.lastTrade}</td>
-                        <td className="px-4 py-3 text-sm">{order.firstTrade}</td>
+                        <td className="px-4 py-3 text-sm">{formatTimestamp(order.lastTrade)}</td>
+                        <td className="px-4 py-3 text-sm">{formatTimestamp(order.firstTrade)}</td>
                         <td className="px-4 py-3 text-sm text-center">{order.trades.length}</td>
 
                         {/* Total Volume */}
@@ -1309,8 +1414,8 @@
                     {sortedOrders.map((order, index) => (
                       <tr key={index} className="border-t border-gray-300 text-gray-700">
                         <td className="px-4 py-3 text-sm">{order.network}</td>
-                        <td className="px-4 py-3 text-sm">{order.lastTrade}</td>
-                        <td className="px-4 py-3 text-sm">{order.firstTrade}</td>
+                        <td className="px-4 py-3 text-sm">{formatTimestamp(order.lastTrade)}</td>
+                        <td className="px-4 py-3 text-sm">{formatTimestamp(order.firstTrade)}</td>
                         <td className="px-4 py-3 text-sm text-center">{order.trades24h}</td>
 
                         {/* 24H Volume */}
@@ -1382,230 +1487,135 @@
                 )
               }
               {
-                (activeTab === "24h") && (
+                (activeTab === "p&l") && (
                   <>
-                    {
-                      dailyDataLoading ? (
-                        <tr>
-                          <td colSpan="100%" className="py-6 text-center">
-                            <div className="flex flex-col items-center justify-center">
-                              <div className="w-10 h-10 border-4 border-gray-300 border-t-indigo-600 rounded-full animate-spin"></div>
-                              <p className="mt-3 text-gray-600 font-medium text-lg">Loading...</p>
+                    {sortedOrders.map((order, index) => (
+                      <tr key={index} className="border-t border-gray-300 text-gray-700">
+                        <td className="px-4 py-3 text-sm">{order.network}</td>
+                        <td className="px-4 py-3 text-sm">{parseFloat((order.lastTrade - order.firstTrade)/86400).toFixed(4)} days</td>
+                        <td className="px-4 py-3 text-sm">{parseFloat((now - order.timestampAdded)/86400).toFixed(4)} days</td>
+
+                        {/* Current Price */}
+                        <td className="px-4 py-3 text-sm">
+                          {loadingDeposits ? (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              Loading...
                             </div>
-                          </td>
-                        </tr>
-                      ) : (
-                        <>
-                          {
-                            dailyData.map((order, index) => (
-                              <tr key={index} className="border-t border-gray-300 text-gray-700">
-                                <td className="px-4 py-3 text-sm">{order.network}</td>
-                                <td className="px-4 py-3 text-sm">{order.lastTrade}</td>
-                                <td className="px-4 py-3 text-sm">{order.firstTrade}</td>
-                                <td className="px-4 py-3 text-sm text-center">{order.trades.length}</td>
-                                <td className="px-4 py-3 text-sm text-center">{order.trades24h}</td>
-      
-                                {/* <td className="px-4 py-3 text-sm">
-                                  {order.inputChange24h.map((change, index) => (
-                                    <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
-                                      <span className="font-semibold">{change.inputToken}</span>
-                                      <span className={`font-medium ${change.inputPercentageChange >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                        {`${change.inputBalanceChange} (${parseFloat(change.inputPercentageChange).toFixed(2)}%)`}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </td>
-      
-                                <td className="px-4 py-3 text-sm">
-                                  {order.outputChange24h.map((change, index) => (
-                                    <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
-                                      <span className="font-semibold">{change.outputToken}</span>
-                                      <span className={`font-medium ${change.outputPercentageChange >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                        {`${change.outputBalanceChange} (${parseFloat(change.outputPercentageChange).toFixed(2)}%)`}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </td> */}
-
-                                {/* Total Volume */}
-                                <td className="px-4 py-3 text-sm">
-                                  {order.volumeTotal.length > 0 ? (
-                                    order.volumeTotal.map((output, index) => (
-                                      <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                        <span className="font-semibold">{output.token}</span>
-                                        <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
-                                      </div>
-                                    ))
-                                  ) : (
-                                    <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
-                                            N/A
-                                      </div>
-                                  )}
-                                </td>
-
-                                {/* 24H Volume */}
-                                <td className="px-4 py-3 text-sm">
-                                  {order.volume24H.length > 0 ? (
-                                    order.volume24H.map((input, index) => (
-                                      <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                        <span className="font-semibold">{input.token}</span>
-                                        <span className="text-gray-800">{formatBalance(input.totalVolume)}</span>
-                                      </div>
-                                    ))
-                                  ) : (
-                                    <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
-                                            N/A
-                                      </div>
-                                  )}
-                                </td>
-
-                                {/* Input Balance */}
-                                <td className="px-4 py-3 text-sm">
-                                  {order.inputBalances.map((input, index) => (
-                                    <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                      <span className="font-semibold">{input.inputToken}</span>
-                                      <span className="text-gray-800">{formatBalance(input.inputTokenBalance)}</span>
-                                    </div>
-                                  ))}
-                                </td>
-      
-                                {/* Output Balance */}
-                                <td className="px-4 py-3 text-sm">
-                                  {order.outputBalances.map((output, index) => (
-                                    <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                      <span className="font-semibold">{output.outputToken}</span>
-                                      <span className="text-gray-800">{formatBalance(output.outputTokenBalance)}</span>
-                                    </div>
-                                  ))}
-                                </td>
-
-                                <td className="py-2 px-4 text-blue-500 underline">
-                                      <a href={getOrderLink(order.orderHash, order.network)} target="_blank" rel="noopener noreferrer">
-                                        {`${order.orderHash.slice(0, 6)}...${order.orderHash.slice(-4)}`}
-                                      </a>
-                                </td>
-                              </tr>
-                            ))
-                          }
-                        </>
+                          ) : order?.inputDepositsWithdraws?.length > 0 || order?.outputDepositsWithdraws?.length > 0 ? (
+                            <>
+                              {/* Input Vaults */}
+                              {order?.inputDepositsWithdraws?.map((input, idx) => (
+                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
+                                  <span className="font-semibold">{input.inputToken}</span>
+                                  <span className="text-gray-600 font-medium">${formatBalance(input.inputTokenPriceUsd)}</span>
+                                </div>
+                              ))}
+                            </>
+                          ) : (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              N/A
+                            </div>
+                          )}
+                        </td>
                         
-                      )
-                    }
+                        <td className="px-4 py-3 text-sm text-center">{order.trades.length}</td>
+
+                        {/* Total Volume */}
+                        <td className="px-4 py-3 text-sm">
+                          {order.volumeTotal.length > 0 ? (
+                            order.volumeTotal.map((output, index) => (
+                              <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                <span className="font-semibold">{output.token}</span>
+                                <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                                      N/A
+                            </div>
+                          )}
+                        </td>
+
+
+                        {/* Output Deposits/Withdrawals */}
+                        <td className="px-4 py-3 text-sm">
+                          {loadingDeposits ? (
+                            <span>Loading...</span>
+                          ) : (
+                            order?.outputDepositsWithdraws?.map((output, idx) => (
+                              <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                <span className="font-semibold">{output.outputToken}</span>
+                                <div className="flex flex-col text-right">
+                                  <span className="text-green-600 font-medium">+{formatBalance(output.totalVaultDeposits)}</span>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </td>
+
+                        {/* Combined Vault Inputs */}
+                        <td className="px-4 py-3 text-sm">
+                          {loadingDeposits ? (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              Loading...
+                            </div>
+                          ) : order?.inputDepositsWithdraws?.length > 0 || order?.outputDepositsWithdraws?.length > 0 ? (
+                            <>
+                              {/* Input Vaults */}
+                              {order?.inputDepositsWithdraws?.map((input, idx) => (
+                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
+                                  <span className="font-semibold">{input.inputToken}</span>
+                                  <span className="text-gray-600 font-medium">{formatBalance(input.currentVaultInputs)}</span>
+                                </div>
+                              ))}
+                            </>
+                          ) : (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              N/A
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center">
+                          {loadingDeposits ? (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm animate-pulse">
+                              Loading...
+                            </div>
+                          ) : order?.orderRoi ? (
+                            <div className="flex justify-center items-center bg-gray-50 px-4 py-2 rounded-lg shadow-sm text-gray-700 font-medium">
+                              ${order.orderRoi}
+                            </div>
+                          ) : (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              N/A
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center">
+                          {loadingDeposits ? (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm animate-pulse">
+                              Loading...
+                            </div>
+                          ) : order?.orderRoiPercentage ? (
+                            <div className="flex justify-center items-center bg-gray-50 px-4 py-2 rounded-lg shadow-sm text-gray-700 font-medium">
+                              {order.orderRoiPercentage} %
+                            </div>
+                          ) : (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              N/A
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2 px-4 text-blue-500 underline">
+                              <a href={getOrderLink(order.orderHash, order.network)} target="_blank" rel="noopener noreferrer">
+                                {`${order.orderHash.slice(0, 6)}...${order.orderHash.slice(-4)}`}
+                              </a>
+                        </td>
+                      </tr>
+                    ))}
                   </>
                 )
               }
-              {
-                (activeTab === "weekly") && (
-                  <>
-                    {
-                      weeklyDataLoading ? (
-                        <tr>
-                          <td colSpan="100%" className="py-6 text-center">
-                            <div className="flex flex-col items-center justify-center">
-                              <div className="w-10 h-10 border-4 border-gray-300 border-t-indigo-600 rounded-full animate-spin"></div>
-                              <p className="mt-3 text-gray-600 font-medium text-lg">Loading...</p>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : (
-                        <>
-                          {
-                            weeklyData.map((order, index) => (
-                              <tr key={index} className="border-t border-gray-300 text-gray-700">
-                                <td className="px-4 py-3 text-sm">{order.network}</td>
-                                <td className="px-4 py-3 text-sm">{order.lastTrade}</td>
-                                <td className="px-4 py-3 text-sm">{order.firstTrade}</td>
-                                <td className="px-4 py-3 text-sm text-center">{order.trades.length}</td>
-                                <td className="px-4 py-3 text-sm text-center">{order.trades24h}</td>
-      
-                                {/* <td className="px-4 py-3 text-sm">
-                                  {order.inputChange24h.map((change, index) => (
-                                    <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
-                                      <span className="font-semibold">{change.inputToken}</span>
-                                      <span className={`font-medium ${change.inputPercentageChange >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                        {`${change.inputBalanceChange} (${parseFloat(change.inputPercentageChange).toFixed(2)}%)`}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </td>
-      
-                                <td className="px-4 py-3 text-sm">
-                                  {order.outputChange24h.map((change, index) => (
-                                    <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
-                                      <span className="font-semibold">{change.outputToken}</span>
-                                      <span className={`font-medium ${change.outputPercentageChange >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                        {`${change.outputBalanceChange} (${parseFloat(change.outputPercentageChange).toFixed(2)}%)`}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </td> */}
-                                {/* Total Volume */}
-                                <td className="px-4 py-3 text-sm">
-                                    {order.volumeTotal.length > 0 ? (
-                                      order.volumeTotal.map((output, index) => (
-                                        <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                          <span className="font-semibold">{output.token}</span>
-                                          <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
-                                            N/A
-                                      </div>
-                                    )}
-                                  </td>
-
-                                {/* 24H Volume */}
-                                  <td className="px-4 py-3 text-sm">
-                                    {order.volume24H.length > 0 ? (
-                                      order.volume24H.map((input, index) => (
-                                        <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                          <span className="font-semibold">{input.token}</span>
-                                          <span className="text-gray-800">{formatBalance(input.totalVolume)}</span>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
-                                            N/A
-                                      </div>
-                                    )}
-                                  </td>
-
-                                  {/* Input Balance */}
-                                  <td className="px-4 py-3 text-sm">
-                                    {order.inputBalances.map((input, index) => (
-                                      <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                        <span className="font-semibold">{input.inputToken}</span>
-                                        <span className="text-gray-800">{formatBalance(input.inputTokenBalance)}</span>
-                                      </div>
-                                    ))}
-                                  </td>
-        
-                                  {/* Output Balance */}
-                                  <td className="px-4 py-3 text-sm">
-                                    {order.outputBalances.map((output, index) => (
-                                      <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                        <span className="font-semibold">{output.outputToken}</span>
-                                        <span className="text-gray-800">{formatBalance(output.outputTokenBalance)}</span>
-                                      </div>
-                                    ))}
-                                  </td>
-
-                                <td className="py-2 px-4 text-blue-500 underline">
-                                      <a href={getOrderLink(order.orderHash, order.network)} target="_blank" rel="noopener noreferrer">
-                                        {`${order.orderHash.slice(0, 6)}...${order.orderHash.slice(-4)}`}
-                                      </a>
-                                </td>
-                              </tr>
-                            ))
-                          }
-                        </>
-                        
-                      )
-                    }
-                  </>
-                )
-              }
+              
               
           </tbody>
         </table>
@@ -1613,7 +1623,6 @@
     );
   };
   
-
   const RaindexOrderList = () => {
     const [initialized, setInitialized] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -1649,6 +1658,7 @@
             );
             order["trades"] = trades.sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp))
             order["network"] = network
+            order["timestampAdded"] = order.timestampAdded
             ordersWithTrades[i] = order
         }
         return ordersWithTrades

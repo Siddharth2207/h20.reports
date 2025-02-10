@@ -6,9 +6,29 @@ const OrdersTable = () => {
     const [activeTab, setActiveTab] = useState("24h");
     const [dailyData, setDailyData] = useState([]);
     const [dailyDataLoading, setDailyDataLoading] = useState(false);
+    const [ownerFilter, setOwnerFilter] = useState("");
+    const [orderStatus, setOrderStatus] = useState("");
+
 
     const [weeklyData, setWeeklyData] = useState([]);
     const [weeklyDataLoading, setWeeklyDataLoading] = useState(false);
+
+    const handleOwnerFilterChange = (e) => {
+      setOwnerFilter(e.target.value.trim()); // Trim spaces
+    };
+
+    const filteredDailyData = dailyData.filter((order) => {
+      const ownerMatches = !ownerFilter || order.owner.toLowerCase().includes(ownerFilter.toLowerCase());
+      const statusMatches = orderStatus === "" || (orderStatus === "active" ? order.active === true : order.active === false);
+      return ownerMatches && statusMatches;
+    });
+    
+    const filteredWeeklyData = weeklyData.filter((order) => {
+      const ownerMatches = !ownerFilter || order.owner.toLowerCase().includes(ownerFilter.toLowerCase());
+      const statusMatches = orderStatus === "" || (orderStatus === "active" ? order.active === true : order.active === false);
+      return ownerMatches && statusMatches;
+    });
+    
 
     useEffect(() => {
       if (activeTab === "24h" && dailyData.length === 0) {
@@ -18,7 +38,6 @@ const OrdersTable = () => {
           try {
             console.log("Fetching daily data...");
             const dailyDataResponse = await fetchDataForElapsedTime(86400);
-            console.log("Fetched Daily Data:", dailyDataResponse);
             setDailyData(dailyDataResponse);
           } catch (error) {
             console.error("Error setting 24h data:", error);
@@ -258,6 +277,38 @@ const OrdersTable = () => {
           ))}
         </div>
 
+        {/* Filters Section */}
+        <div className="p-4 bg-gray-50 flex items-center justify-between rounded-lg shadow-md border border-gray-200">
+          {/* Owner Filter Input */}
+          <div className="flex items-center">
+            <label className="text-gray-700 font-semibold text-sm mr-3">Filter by Owner:</label>
+            <input
+              type="text"
+              className="p-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-80 text-sm text-gray-900 placeholder-gray-400"
+              placeholder="Enter owner address..."
+              value={ownerFilter}
+              onChange={handleOwnerFilterChange}
+            />
+          </div>
+
+          {/* Order Status Filter */}
+          <div className="flex items-center">
+            <label className="text-gray-700 font-semibold text-sm mr-3">Status:</label>
+            <select
+              className="p-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900"
+              value={orderStatus}
+              onChange={(e) => setOrderStatus(e.target.value)}
+            >
+              <option value="">All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+
+
+
+
         <table className="table-auto w-full border-collapse border border-gray-200">
         <thead className="bg-gray-50 text-gray-800 text-sm font-semibold">
           <tr className="border-b border-gray-300">
@@ -268,6 +319,7 @@ const OrdersTable = () => {
               <>
                 <th className="px-4 py-3 text-left">Last Trade</th>
                 <th className="px-4 py-3 text-left">First Trade</th>
+                <th className="px-4 py-3 text-left">Order Status</th>
                 <th className="px-4 py-3 text-center">
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
@@ -396,11 +448,18 @@ const OrdersTable = () => {
                       ) : (
                         <>
                           {
-                            dailyData.map((order, index) => (
+                            filteredDailyData.map((order, index) => (
                               <tr key={index} className="border-t border-gray-300 text-gray-700">
                                 <td className="px-4 py-3 text-sm">{order.network}</td>
                                 <td className="px-4 py-3 text-sm">{formatTimestamp(order.lastTrade)}</td>
                                 <td className="px-4 py-3 text-sm">{formatTimestamp(order.firstTrade)}</td>
+                                <td
+                                  className={`px-4 py-3 text-sm font-semibold ${
+                                    order.active ? "text-green-600" : "text-red-600"
+                                  }`}
+                                >
+                                  {order.active ? "Active" : "Inactive"}
+                                </td>
                                 <td className="px-4 py-3 text-sm text-center">{order.trades.length}</td>
                                 <td className="px-4 py-3 text-sm text-center">{order.trades24h}</td>
       
@@ -487,11 +546,18 @@ const OrdersTable = () => {
                       ) : (
                         <>
                           {
-                            weeklyData.map((order, index) => (
+                            filteredWeeklyData.map((order, index) => (
                               <tr key={index} className="border-t border-gray-300 text-gray-700">
                                 <td className="px-4 py-3 text-sm">{order.network}</td>
                                 <td className="px-4 py-3 text-sm">{formatTimestamp(order.lastTrade)}</td>
                                 <td className="px-4 py-3 text-sm">{formatTimestamp(order.firstTrade)}</td>
+                                <td
+                                  className={`px-4 py-3 text-sm font-semibold ${
+                                    order.active ? "text-green-600" : "text-red-600"
+                                  }`}
+                                >
+                                  {order.active ? "Active" : "Inactive"}
+                                </td>
                                 <td className="px-4 py-3 text-sm text-center">{order.trades.length}</td>
                                 <td className="px-4 py-3 text-sm text-center">{order.trades24h}</td>
       

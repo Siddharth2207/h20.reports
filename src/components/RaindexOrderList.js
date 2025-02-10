@@ -171,6 +171,8 @@
           network: order.network,
           timestampAdded: order.timestampAdded,
           orderHash: order.orderHash,
+          owner: order.owner,
+          active: order.active, 
           inputs: order.inputs,
           outputs: order.outputs,
           trades: trades,
@@ -195,6 +197,8 @@
       id
       order {
         orderHash
+        owner
+        active
         outputs {
           id
           token {
@@ -272,6 +276,8 @@
          if (!acc[orderHash]) {
          acc[orderHash] = {
              orderHash: orderHash,
+             owner: trade.order.owner,
+             active: trade.order.active,
              inputs: trade.order.inputs,
              outputs: trade.order.outputs,
              trades: [],

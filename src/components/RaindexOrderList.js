@@ -229,6 +229,7 @@
         oldVaultBalance
         newVaultBalance
         vault {
+          id
           token {
             id
             address
@@ -240,6 +241,7 @@
       }
       inputVaultBalanceChange {
         vault {
+          id
           token {
             id
             address
@@ -580,7 +582,7 @@
 
           const curerentVaultDifferential = parseFloat(
             ethers.utils.formatUnits(
-              totalVaultDeposits.sub(currentVaultInputs), 
+              currentVaultInputs.sub(totalVaultDeposits), 
               input.token.decimals
             )
           ).toFixed(4);
@@ -588,7 +590,7 @@
           const vaultDifferentialPercentage = totalVaultDeposits.gt(0) ? (
             parseFloat(
               ethers.utils.formatUnits(
-                totalVaultDeposits.sub(currentVaultInputs), 
+                currentVaultInputs.sub(totalVaultDeposits), 
                 input.token.decimals
               )
             ) / parseFloat(ethers.utils.formatUnits(totalVaultDeposits, input.token.decimals)) * 100
@@ -623,7 +625,7 @@
 
           const curerentVaultDifferential = parseFloat(
             ethers.utils.formatUnits(
-              totalVaultDeposits.sub(currentVaultInputs), 
+              currentVaultInputs.sub(totalVaultDeposits), 
               output.token.decimals
             )
           ).toFixed(4);
@@ -631,7 +633,7 @@
           const vaultDifferentialPercentage = totalVaultDeposits.gt(0) ? (
             parseFloat(
               ethers.utils.formatUnits(
-                totalVaultDeposits.sub(currentVaultInputs), 
+                currentVaultInputs.sub(totalVaultDeposits), 
                 output.token.decimals
               )
             ) / parseFloat(ethers.utils.formatUnits(totalVaultDeposits, output.token.decimals)) * 100
@@ -658,11 +660,11 @@
       }, []);
 
       const totalDepositUsd = outputDepositsWithdraws.reduce((sum, output) => {
-        return sum + (parseFloat(output.totalVaultDeposits) * parseFloat(output.outputTokenPriceUsd));
+        return sum + (parseFloat(output.totalVaultDeposits));
       }, 0);
 
       const totalInputsChange = inputDepositsWithdraws.reduce((sum, input) => {
-        return sum + (parseFloat(input.currentVaultInputs) * parseFloat(input.inputTokenPriceUsd));
+        return sum + (parseFloat(input.currentVaultInputs));
       }, 0);
 
       const orderRoi = (totalInputsChange - totalDepositUsd).toFixed(2)
@@ -1546,7 +1548,9 @@
                         {/* Output Deposits/Withdrawals */}
                         <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
-                            <span>Loading...</span>
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              Loading...
+                            </div>
                           ) : (
                             order?.outputDepositsWithdraws?.map((output, idx) => (
                               <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
@@ -1581,7 +1585,67 @@
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm text-center">
+                        <td>
+                          {loadingDeposits ? (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              Loading...
+                            </div>
+                          ) : order?.inputDepositsWithdraws?.length > 0 ? (
+                            <>
+                              {order?.inputDepositsWithdraws?.map((input, idx) => (
+                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
+                                  <span className="font-semibold">{input.inputToken}</span>
+                                  <div className="flex flex-col text-right">
+                                    <span
+                                      className={`font-medium ${
+                                        input.curerentVaultDifferential >= 0 ? "text-green-600" : "text-red-600"
+                                      }`}
+                                    >
+                                      ${formatBalance(input.curerentVaultDifferential * input.inputTokenPriceUsd)}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </>
+                          ) : (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              N/A
+                            </div>
+                          )}
+                        </td>
+
+                        <td>
+                          {loadingDeposits ? (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              Loading...
+                            </div>
+                          ) : order?.inputDepositsWithdraws?.length > 0 ? (
+                            <>
+                              {order?.inputDepositsWithdraws?.map((input, idx) => (
+                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
+                                  <span className="font-semibold">{input.inputToken}</span>
+                                  <div className="flex flex-col text-right">
+                                    <span
+                                      className={`font-medium ${
+                                        input.vaultDifferentialPercentage >= 0 ? "text-green-600" : "text-red-600"
+                                      }`}
+                                    >
+                                      {input.vaultDifferentialPercentage}%
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </>
+                          ) : (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              N/A
+                            </div>
+                          )}
+                        </td>
+
+
+                        
+                        {/* <td className="px-4 py-3 text-sm text-center">
                           {loadingDeposits ? (
                             <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm animate-pulse">
                               Loading...
@@ -1595,8 +1659,8 @@
                               N/A
                             </div>
                           )}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-center">
+                        </td> */}
+                        {/* <td className="px-4 py-3 text-sm text-center">
                           {loadingDeposits ? (
                             <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm animate-pulse">
                               Loading...
@@ -1610,7 +1674,7 @@
                               N/A
                             </div>
                           )}
-                        </td>
+                        </td> */}
                         <td className="py-2 px-4 text-blue-500 underline">
                               <a href={getOrderLink(order.orderHash, order.network)} target="_blank" rel="noopener noreferrer">
                                 {`${order.orderHash.slice(0, 6)}...${order.orderHash.slice(-4)}`}

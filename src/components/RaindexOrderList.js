@@ -570,7 +570,9 @@
           ordersWithTrades[i] = order
       }
       const transformedOrders = ordersWithTrades.map((order) => {
-
+      
+      const orderDuration = now - order.timestampAdded
+      const secondsInYear = 365 * 86400
       // Unique input vaults
       const uniqueInputVaults = new Map();
 
@@ -586,6 +588,7 @@
               input.token.decimals
             )
           ).toFixed(4);
+          const currentVaultApy = parseFloat((curerentVaultDifferential * secondsInYear)/(orderDuration))
 
           const vaultDifferentialPercentage = totalVaultDeposits.gt(0) ? (
             parseFloat(
@@ -596,6 +599,9 @@
             ) / parseFloat(ethers.utils.formatUnits(totalVaultDeposits, input.token.decimals)) * 100
           ).toFixed(2) : "0.00";
 
+          const currentVaultApyPercentage = parseFloat((vaultDifferentialPercentage * secondsInYear)/(orderDuration))
+
+
           console.log("input.usdPrice : ", input.usdPrice)
           const vaultData = {
             vaultId: input.id,
@@ -605,7 +611,9 @@
             totalVaultWithdrawals: parseFloat(ethers.utils.formatUnits(totalVaultWithdrawals, input.token.decimals)).toFixed(4),
             currentVaultInputs: parseFloat(ethers.utils.formatUnits(currentVaultInputs, input.token.decimals)).toFixed(4),
             curerentVaultDifferential,
-            vaultDifferentialPercentage
+            vaultDifferentialPercentage,
+            currentVaultApy,
+            currentVaultApyPercentage
           };
 
           uniqueInputVaults.set(input.id, vaultData);
@@ -630,6 +638,7 @@
             )
           ).toFixed(4);
 
+          const currentVaultApy = parseFloat((curerentVaultDifferential * secondsInYear)/(orderDuration))
           const vaultDifferentialPercentage = totalVaultDeposits.gt(0) ? (
             parseFloat(
               ethers.utils.formatUnits(
@@ -639,7 +648,7 @@
             ) / parseFloat(ethers.utils.formatUnits(totalVaultDeposits, output.token.decimals)) * 100
           ).toFixed(2) : "0.00";
 
-          
+          const currentVaultApyPercentage = parseFloat((vaultDifferentialPercentage * secondsInYear)/(orderDuration))
 
           const vaultData = {
             vaultId: output.id,
@@ -650,7 +659,9 @@
             currentVaultBalance: parseFloat(ethers.utils.formatUnits(output.balance, output.token.decimals)).toFixed(4),
             currentVaultInputs: parseFloat(ethers.utils.formatUnits(currentVaultInputs, output.token.decimals)).toFixed(4),
             curerentVaultDifferential,
-            vaultDifferentialPercentage
+            vaultDifferentialPercentage,
+            currentVaultApy,
+            currentVaultApyPercentage
           };
 
           uniqueOutputVaults.set(output.id, vaultData);
@@ -668,13 +679,18 @@
       }, 0);
 
       const orderRoi = (totalInputsChange - totalDepositUsd).toFixed(2)
+      const orderApy = (orderRoi * secondsInYear) / orderDuration
+
       const orderRoiPercentage = (((totalInputsChange - totalDepositUsd) / totalDepositUsd) * 100).toFixed(2)
+      const orderApyPercentage = (orderRoiPercentage * secondsInYear) / orderDuration
 
 
       return {
           ...order,
           orderRoi,
           orderRoiPercentage,
+          orderApy,
+          orderApyPercentage,
           totalDepositUsd,
           totalInputsChange,
           inputDepositsWithdraws: inputDepositsWithdraws,
@@ -1085,25 +1101,16 @@
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left text-gray-700 font-semibold bg-gray-100 border-b border-gray-300 uppercase tracking-wide">
-                  $ ROI
-                </th>
-                <th className="px-4 py-3 text-left text-gray-700 font-semibold bg-gray-100 border-b border-gray-300 uppercase tracking-wide">
-                  % ROI
-                </th>
-
-                
-
-                {/* <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-left">
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
-                    <option value="inputDepositWithdrawalsAsc">Input Deposits / Withdrawals ↑</option>
-                    <option value="inputDepositWithdrawalsDesc">Input Deposits / Withdrawals ↓</option>
+                    <option value="">$ ROI ↑</option>
+                    <option value="">$ ROI ↓</option>
                   </select>
                 </th>
 
@@ -1111,12 +1118,24 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
-                    <option value="outputDepositWithdrawalsAsc">Output Deposits / Withdrawals ↑</option>
-                    <option value="outputDepositWithdrawalsDesc">Output Deposits / Withdrawals ↓</option>
+                    <option value="">ROI % ↑</option>
+                    <option value="">ROI % ↓</option>
+                  </select>
+                </th>
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="">$ Projected APY ↑</option>
+                    <option value="">$ Projected APY ↓</option>
                   </select>
                 </th>
 
@@ -1124,27 +1143,14 @@
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
+                      sortedOrders, 
                       e.target.value
                     )}
                   >
-                    <option value="inputsAsc">Inputs ↑</option>
-                    <option value="inputsDesc">Inputs ↓</option>
+                    <option value="">Projected APY %↑</option>
+                    <option value="">Projected APY %↓</option>
                   </select>
                 </th>
-
-                <th className="px-4 py-3 text-left">
-                  <select
-                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
-                    onChange={(e) => handleSortByVaultBalance(
-                      activeTab === "24h" ? dailyData : activeTab === "weekly" ? weeklyData : sortedOrders, 
-                      e.target.value
-                    )}
-                  >
-                    <option value="differentialAsc">Change ↑</option>
-                    <option value="differentialDesc">Change ↓</option>
-                  </select>
-                </th> */}
 
               </>
             )}
@@ -1166,28 +1172,6 @@
                         <td className="px-4 py-3 text-sm">{formatTimestamp(order.firstTrade)}</td>
                         <td className="px-4 py-3 text-sm text-center">{order.trades.length}</td>
                         <td className="px-4 py-3 text-sm text-center">{order.trades24h}</td>
-
-                        {/* <td className="px-4 py-3 text-sm">
-                          {order.inputChange24h.map((change, index) => (
-                            <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
-                              <span className="font-semibold">{change.inputToken}</span>
-                              <span className={`font-medium ${change.inputPercentageChange >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                {`${change.inputBalanceChange} (${parseFloat(change.inputPercentageChange).toFixed(2)}%)`}
-                              </span>
-                            </div>
-                          ))}
-                        </td>
-
-                        <td className="px-4 py-3 text-sm">
-                          {order.outputChange24h.map((change, index) => (
-                            <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
-                              <span className="font-semibold">{change.outputToken}</span>
-                              <span className={`font-medium ${change.outputPercentageChange >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                {`${change.outputBalanceChange} (${parseFloat(change.outputPercentageChange).toFixed(2)}%)`}
-                              </span>
-                            </div>
-                          ))}
-                        </td> */}
 
                         {/* Total Volume */}
                         <td className="px-4 py-3 text-sm">
@@ -1703,7 +1687,7 @@
                                     className={`${
                                       order.orderRoiPercentage >= 0 ? "text-green-600" : "text-red-600"
                                     }`}
-                                  >{order.orderRoiPercentage >= 0 ? `%${order.orderRoiPercentage}` : `%${order.orderRoiPercentage}`}</span>
+                                  >{order.orderRoiPercentage >= 0 ? `${order.orderRoiPercentage}%` : `${order.orderRoiPercentage}%`}</span>
                                 </div>
                               )}
                             </div>
@@ -1714,38 +1698,97 @@
                           )}
                         </td>
 
+                        {/* APY */}
+                        <td className="px-4 py-3 text-sm">
+                          {loadingDeposits ? (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              Loading...
+                            </div>
+                          ) : order?.inputDepositsWithdraws?.length > 0 ? (
+                            <div className="space-y-2">
+                              {order?.inputDepositsWithdraws?.map((input, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm"
+                                >
+                                  <span className="font-semibold">{input.inputToken}</span>
+                                  <div className="flex flex-col text-right">
+                                    <span
+                                      className={`font-medium ${
+                                        input.currentVaultApy >= 0 ? "text-green-600" : "text-red-600"
+                                      }`}
+                                    >
+                                      {formatBalance(input.currentVaultApy)}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                              
+                              {order?.orderApy !== undefined && (
+                                <div
+                                  className="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg shadow-sm text-sm font-medium"
+                                >
+                                  <span className="font-semibold text-gray-600">Total Projected APY (USD)</span>
+                                  <span
+                                    className={`${
+                                      order.orderApy >= 0 ? "text-green-600" : "text-red-600"
+                                    }`}
+                                  >{order.orderApy >= 0 ? `$${formatBalance(order.orderApy)}` : `$${formatBalance(order.orderApy)}`}</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              N/A
+                            </div>
+                          )}
+                        </td>
 
-                        
-                        {/* <td className="px-4 py-3 text-sm text-center">
+                        {/* APY% */}
+                        <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm animate-pulse">
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               Loading...
                             </div>
-                          ) : order?.orderRoi ? (
-                            <div className="flex justify-center items-center bg-gray-50 px-4 py-2 rounded-lg shadow-sm text-gray-700 font-medium">
-                              ${order.orderRoi}
+                          ) : order?.inputDepositsWithdraws?.length > 0 ? (
+                            <div className="space-y-2">
+                              {order?.inputDepositsWithdraws?.map((input, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm"
+                                >
+                                  <span className="font-semibold">{input.inputToken}</span>
+                                  <div className="flex flex-col text-right">
+                                    <span
+                                      className={`font-medium ${
+                                        input.currentVaultApyPercentage >= 0 ? "text-green-600" : "text-red-600"
+                                      }`}
+                                    >
+                                      {formatBalance(input.currentVaultApyPercentage)}%
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+
+                              {order?.orderApyPercentage !== undefined && (
+                                <div
+                                  className="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg shadow-sm text-sm font-medium"
+                                >
+                                  <span className="font-semibold text-gray-600">Total Projected APY%</span>
+                                  <span
+                                    className={`${
+                                      order.orderApyPercentage >= 0 ? "text-green-600" : "text-red-600"
+                                    }`}
+                                  >{order.orderApyPercentage >= 0 ? `${formatBalance(order.orderApyPercentage)}%` : `${formatBalance(order.orderApyPercentage)}%`}</span>
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               N/A
                             </div>
                           )}
-                        </td> */}
-                        {/* <td className="px-4 py-3 text-sm text-center">
-                          {loadingDeposits ? (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm animate-pulse">
-                              Loading...
-                            </div>
-                          ) : order?.orderRoiPercentage ? (
-                            <div className="flex justify-center items-center bg-gray-50 px-4 py-2 rounded-lg shadow-sm text-gray-700 font-medium">
-                              {order.orderRoiPercentage} %
-                            </div>
-                          ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
-                              N/A
-                            </div>
-                          )}
-                        </td> */}
+                        </td>
                         <td className="py-2 px-4 text-blue-500 underline">
                               <a href={getOrderLink(order.orderHash, order.network)} target="_blank" rel="noopener noreferrer">
                                 {`${order.orderHash.slice(0, 6)}...${order.orderHash.slice(-4)}`}

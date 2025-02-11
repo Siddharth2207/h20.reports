@@ -577,7 +577,7 @@
       const inputDepositsWithdraws = order.inputs.reduce((acc, input) => {
         if (!uniqueInputVaults.has(input.id)) {
           const totalVaultDeposits = input.deposits.reduce((total, deposit) => total.add(ethers.BigNumber.from(deposit.amount)), ethers.BigNumber.from(0));
-          const totalVaultWithdrawals = input.withdrawals.reduce((total, withdrawal) => total.add(ethers.BigNumber.from(withdrawal.amount)), ethers.BigNumber.from(0));
+          const totalVaultWithdrawals = input.withdrawals.reduce((total, withdrawal) => total.add(ethers.BigNumber.from(withdrawal.amount).abs()), ethers.BigNumber.from(0));
           const currentVaultInputs = totalVaultWithdrawals.add(input.balance);
 
           const curerentVaultDifferential = parseFloat(
@@ -620,7 +620,7 @@
       const outputDepositsWithdraws = order.outputs.reduce((acc, output) => {
         if (!uniqueOutputVaults.has(output.id)) {
           const totalVaultDeposits = output.deposits.reduce((total, deposit) => total.add(ethers.BigNumber.from(deposit.amount)), ethers.BigNumber.from(0));
-          const totalVaultWithdrawals = output.withdrawals.reduce((total, withdrawal) => total.add(ethers.BigNumber.from(withdrawal.amount)), ethers.BigNumber.from(0));
+          const totalVaultWithdrawals = output.withdrawals.reduce((total, withdrawal) => total.add(ethers.BigNumber.from(withdrawal.amount).abs()), ethers.BigNumber.from(0));
           const currentVaultInputs = totalVaultWithdrawals.add(output.balance);
 
           const curerentVaultDifferential = parseFloat(
@@ -660,21 +660,23 @@
       }, []);
 
       const totalDepositUsd = outputDepositsWithdraws.reduce((sum, output) => {
-        return sum + (parseFloat(output.totalVaultDeposits));
+        return sum + (parseFloat(output.totalVaultDeposits) * parseFloat(output.outputTokenPriceUsd));
       }, 0);
 
       const totalInputsChange = inputDepositsWithdraws.reduce((sum, input) => {
-        return sum + (parseFloat(input.currentVaultInputs));
+        return sum + (parseFloat(input.currentVaultInputs) * parseFloat(input.inputTokenPriceUsd));
       }, 0);
 
       const orderRoi = (totalInputsChange - totalDepositUsd).toFixed(2)
-      const orderRoiPercentage = (((totalInputsChange - totalDepositUsd) * 365 * 86400) / (now - order.timestampAdded)).toFixed(2)
+      const orderRoiPercentage = (((totalInputsChange - totalDepositUsd) / totalDepositUsd) * 100).toFixed(2)
 
 
       return {
           ...order,
           orderRoi,
           orderRoiPercentage,
+          totalDepositUsd,
+          totalInputsChange,
           inputDepositsWithdraws: inputDepositsWithdraws,
           outputDepositsWithdraws: outputDepositsWithdraws
         }
@@ -1552,14 +1554,34 @@
                               Loading...
                             </div>
                           ) : (
-                            order?.outputDepositsWithdraws?.map((output, idx) => (
-                              <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                <span className="font-semibold">{output.outputToken}</span>
-                                <div className="flex flex-col text-right">
-                                  <span className="text-green-600 font-medium">+{formatBalance(output.totalVaultDeposits)}</span>
+                            <div className="space-y-2">
+                              {order?.outputDepositsWithdraws?.map((output, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm"
+                                >
+                                  <span className="font-semibold">{output.outputToken}</span>
+                                  <div className="flex flex-col text-right">
+                                    <span className="text-green-600 font-medium">
+                                      +{formatBalance(output.totalVaultDeposits)}
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
-                            ))
+                              ))}
+
+                              {order?.totalDepositUsd !== undefined && (
+                                <div
+                                  className="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg shadow-sm text-sm font-medium"
+                                >
+                                  <span className="font-semibold text-gray-600">Total (USD)</span>
+                                  <span
+                                    className={`${
+                                      order.totalDepositUsd >= 0 ? "text-green-600" : "text-red-600"
+                                    }`}
+                                  >{order.totalDepositUsd >= 0 ? `$${formatBalance(order.totalDepositUsd)}` : `$${formatBalance(order.totalDepositUsd)}`}</span>
+                                </div>
+                              )}
+                            </div>
                           )}
                         </td>
 
@@ -1570,43 +1592,28 @@
                               Loading...
                             </div>
                           ) : order?.inputDepositsWithdraws?.length > 0 || order?.outputDepositsWithdraws?.length > 0 ? (
-                            <>
+                            <div className="space-y-2">
                               {/* Input Vaults */}
                               {order?.inputDepositsWithdraws?.map((input, idx) => (
-                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
+                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
                                   <span className="font-semibold">{input.inputToken}</span>
                                   <span className="text-gray-600 font-medium">{formatBalance(input.currentVaultInputs)}</span>
                                 </div>
                               ))}
-                            </>
-                          ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
-                              N/A
-                            </div>
-                          )}
-                        </td>
-                        <td>
-                          {loadingDeposits ? (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
-                              Loading...
-                            </div>
-                          ) : order?.inputDepositsWithdraws?.length > 0 ? (
-                            <>
-                              {order?.inputDepositsWithdraws?.map((input, idx) => (
-                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
-                                  <span className="font-semibold">{input.inputToken}</span>
-                                  <div className="flex flex-col text-right">
-                                    <span
-                                      className={`font-medium ${
-                                        input.curerentVaultDifferential >= 0 ? "text-green-600" : "text-red-600"
-                                      }`}
-                                    >
-                                      ${formatBalance(input.curerentVaultDifferential * input.inputTokenPriceUsd)}
-                                    </span>
-                                  </div>
+
+                              {order?.totalInputsChange !== undefined && (
+                                <div
+                                  className="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg shadow-sm text-sm font-medium"
+                                >
+                                  <span className="font-semibold text-gray-600">Total Inputs (USD)</span>
+                                  <span
+                                    className={`${
+                                      order.totalInputsChange >= 0 ? "text-green-600" : "text-red-600"
+                                    }`}
+                                  >{order.totalInputsChange >= 0 ? `$${formatBalance(order.totalInputsChange)}` : `$${formatBalance(order.totalInputsChange)}`}</span>
                                 </div>
-                              ))}
-                            </>
+                              )}
+                            </div>
                           ) : (
                             <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               N/A
@@ -1614,15 +1621,66 @@
                           )}
                         </td>
 
-                        <td>
+                        
+                        {/* ROI */}
+                        <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
                             <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               Loading...
                             </div>
                           ) : order?.inputDepositsWithdraws?.length > 0 ? (
-                            <>
+                            <div className="space-y-2">
                               {order?.inputDepositsWithdraws?.map((input, idx) => (
-                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
+                                <div
+                                  key={idx}
+                                  className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm"
+                                >
+                                  <span className="font-semibold">{input.inputToken}</span>
+                                  <div className="flex flex-col text-right">
+                                    <span
+                                      className={`font-medium ${
+                                        input.curerentVaultDifferential >= 0 ? "text-green-600" : "text-red-600"
+                                      }`}
+                                    >
+                                      {formatBalance(input.curerentVaultDifferential)}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                              
+                              {order?.orderRoi !== undefined && (
+                                <div
+                                  className="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg shadow-sm text-sm font-medium"
+                                >
+                                  <span className="font-semibold text-gray-600">Total ROI (USD)</span>
+                                  <span
+                                    className={`${
+                                      order.orderRoi >= 0 ? "text-green-600" : "text-red-600"
+                                    }`}
+                                  >{order.orderRoi >= 0 ? `$${order.orderRoi}` : `$${order.orderRoi}`}</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              N/A
+                            </div>
+                          )}
+                        </td>
+
+                        {/* ROI% */}
+                        <td className="px-4 py-3 text-sm">
+                          {loadingDeposits ? (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              Loading...
+                            </div>
+                          ) : order?.inputDepositsWithdraws?.length > 0 ? (
+                            <div className="space-y-2">
+                              {order?.inputDepositsWithdraws?.map((input, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm"
+                                >
                                   <span className="font-semibold">{input.inputToken}</span>
                                   <div className="flex flex-col text-right">
                                     <span
@@ -1635,7 +1693,20 @@
                                   </div>
                                 </div>
                               ))}
-                            </>
+
+                              {order?.orderRoiPercentage !== undefined && (
+                                <div
+                                  className="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg shadow-sm text-sm font-medium"
+                                >
+                                  <span className="font-semibold text-gray-600">Total ROI%</span>
+                                  <span
+                                    className={`${
+                                      order.orderRoiPercentage >= 0 ? "text-green-600" : "text-red-600"
+                                    }`}
+                                  >{order.orderRoiPercentage >= 0 ? `%${order.orderRoiPercentage}` : `%${order.orderRoiPercentage}`}</span>
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               N/A

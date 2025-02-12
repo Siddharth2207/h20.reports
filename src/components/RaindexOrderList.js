@@ -130,6 +130,7 @@
         const inputBalances = order.inputs.map((input) => {
           return {
             inputToken : input.token.symbol,
+            inputTokenAddress : input.token.address,
             inputTokenBalance: parseFloat(ethers.utils.formatUnits(input.balance, input.token.decimals)).toFixed(4)
           }
         });
@@ -138,6 +139,7 @@
         const outputBalances = order.outputs.map((output) => {
           return {
             outputToken: output.token.symbol,
+            outputTokenAddress : output.token.address,
             outputTokenBalance: parseFloat(ethers.utils.formatUnits(output.balance, output.token.decimals)).toFixed(4)
           }
         });
@@ -239,124 +241,101 @@
           volumeTotal,
           volume24H,
           order24hVolumeUsd,
-          orderTotalVolumeUsd
+          orderTotalVolumeUsd,
+          tokenPriceMap: order.tokenPriceMap
         }
     });
   }
 
   const fetchAllNetworksOrderQuery = `query OrderTakesListQuery($skip: Int = 0, $first: Int = 1000, $timestampGt: Int!) {
-    trades(orderBy: timestamp, orderDirection: desc, skip: $skip, first: $first, where: {
-      timestamp_gt: $timestampGt
-    }) {
-      timestamp
+  orders(
+    orderBy: timestampAdded
+    orderDirection: desc
+    skip: $skip
+    first: $first
+    where: {
+      or: [
+        { trades_: { timestamp_gt: $timestampGt } } # Use variable for dynamic filtering
+        { timestampAdded_gt: $timestampGt }
+      ]
+    }
+  ) {
+    orderHash
+    timestampAdded
+    owner
+    active
+    outputs {
       id
-      order {
-        orderHash
-        owner
-        active
-        outputs {
-          id
-          token {
-            id
-            address
-            name
-            symbol
-            decimals
-          }
-          balance
-          vaultId
-        }
-        inputs {
-          id
-          token {
-            id
-            address
-            name
-            symbol
-            decimals
-          }
-          balance
-          vaultId
-        }
+      token {
+        id
+        address
+        name
+        symbol
+        decimals
       }
-      outputVaultBalanceChange {
-        amount
-        oldVaultBalance
-        newVaultBalance
-        vault {
-          id
-          token {
-            id
-            address
-            name
-            symbol
-            decimals
-          }
-        }
+      balance
+      vaultId
+    }
+    inputs {
+      id
+      token {
+        id
+        address
+        name
+        symbol
+        decimals
       }
-      inputVaultBalanceChange {
-        vault {
-          id
-          token {
-            id
-            address
-            name
-            symbol
-            decimals
-          }
-        }
-        amount
-        oldVaultBalance
-        newVaultBalance
-      }
+      balance
+      vaultId
     }
   }
-  `
+}
+`
 
-  const fetchDataForElapsedTime = async(elapsedTime) => {
-       
-    const networksArray = Object.keys(networkConfig)
+  const fetchDataForElapsedTime = async (elapsedTime) => {
+    const networksArray = Object.keys(networkConfig);
+    let allNetworksTrades = [];
 
-    let allNetworksTrades = []
-    for(let i = 0; i < networksArray.length; i++){
-      const network = networksArray[i]
-      const endpoint = networkConfig[network].subgraphUrl
-      const tradesLast24h = await fetchAllPaginatedData(
-       endpoint,
-       fetchAllNetworksOrderQuery,
-       {timestampGt: now - elapsedTime},
-       "trades"
-      )
-      const groupedTrades = tradesLast24h.reduce((acc, trade) => {
-         const orderHash = trade.order.orderHash;
- 
-         if (!acc[orderHash]) {
-         acc[orderHash] = {
-             orderHash: orderHash,
-             owner: trade.order.owner,
-             active: trade.order.active,
-             inputs: trade.order.inputs,
-             outputs: trade.order.outputs,
-             trades: [],
-         };
-         }
- 
-         acc[orderHash].trades.push({
-         timestamp: trade.timestamp,
-         outputVaultBalanceChange: trade.outputVaultBalanceChange,
-         inputVaultBalanceChange: trade.inputVaultBalanceChange,
-         });
- 
-         return acc;
-       }, {});
-     const networkTrades = Object.values(groupedTrades).map((order) => ({
-         ...order,
-         network: network
-       }))
-       allNetworksTrades.push(...networkTrades);
+    for (let i = 0; i < networksArray.length; i++) {
+      const network = networksArray[i];
+      const endpoint = networkConfig[network].subgraphUrl;
+
+      const networkTrades = await fetchAllPaginatedData(
+        endpoint,
+        fetchAllNetworksOrderQuery,
+        { timestampGt: now - elapsedTime },
+        "orders"
+      );
+
+      allNetworksTrades = allNetworksTrades.concat(
+        networkTrades.map((trade) => ({ ...trade, network }))
+      );
+    }
+
+    for(let i = 0; i < allNetworksTrades.length; i++){
+      let order = allNetworksTrades[i]
+      const trades = await fetchAllPaginatedData(
+        networkConfig[order.network].subgraphUrl,
+          fetchTradesQuery,
+          { orderHash: order.orderHash },
+          "trades",
+      );
+      order["trades"] = trades
+      const tokenPriceMap = {};
+      const dataSources = [order.inputs, order.outputs];
+      for (const source of dataSources) {
+          for (const item of source) {
+              if (item.token.address) {
+                  const tokenPrice = await getTokenPriceUsd(item.token.address, item.token.symbol)
+                  tokenPriceMap[item.token.address.toLowerCase()] = parseFloat(tokenPrice.currentPrice);
+              }
+          }
+      }
+      order["tokenPriceMap"] = tokenPriceMap
+
     }
     return transformedOrders(allNetworksTrades)
-  }
+  };
 
   const getOrderLink = (orderHash, orderNetwork) =>
     `https://raindex.finance/my-strategies/${orderHash}-${orderNetwork}`;

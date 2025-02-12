@@ -6,15 +6,32 @@
   const now = Math.floor(Date.now() / 1000);
 
   const formatTimestamp = (timestamp) => {
-    return new Date(timestamp * 1000).toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
+      if (!timestamp || timestamp === 0) {
+          return "N/A";
+      }
+
+      const dateObj = new Date(timestamp * 1000);
+      
+      const date = dateObj.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+
+      const time = dateObj.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+
+      return (
+        <>
+          {date} <br /> {time}
+        </>
+      );
   };
+
+
 
   const formatBalance = (balance) => {
       const num = parseFloat(balance);
@@ -369,6 +386,22 @@
     
         case "orderApyDesc":
           sorted.sort((a, b) => b.orderApy - a.orderApy);
+          break;
+        
+        case "firstTradeAsc":
+          sorted.sort((a, b) => a.firstTrade - b.firstTrade);
+          break;
+    
+        case "firstTradeDesc":
+          sorted.sort((a, b) => b.firstTrade - a.firstTrade);
+          break;
+
+        case "lastTradeAsc":
+          sorted.sort((a, b) => a.lastTrade - b.lastTrade);
+          break;
+    
+        case "lastTradeDesc":
+          sorted.sort((a, b) => b.lastTrade - a.lastTrade);
           break;
 
         case "orderDurationAsc":
@@ -969,8 +1002,32 @@
 
             {activeTab === "vault" && (
               <>
-                <th className="px-4 py-3 text-left">Last Trade</th>
-                <th className="px-4 py-3 text-left">First Trade</th>
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="lastTradeAsc">Last Trade ↑</option>
+                    <option value="lastTradeDesc">Last Trade ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="firstTradeAsc">First Trade ↑</option>
+                    <option value="firstTradeDesc">First Trade ↓</option>
+                  </select>
+                </th>
+                
                 <th className="px-4 py-3 text-center">
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
@@ -979,8 +1036,8 @@
                       e.target.value
                     )}
                   >
-                    <option value="totalTradesAsc">Total ↑</option>
-                    <option value="totalTradesDesc">Total ↓</option>
+                    <option value="totalTradesAsc">Total Trades ↑</option>
+                    <option value="totalTradesDesc">Total Trades ↓</option>
                   </select>
                 </th>
 
@@ -992,12 +1049,12 @@
                       e.target.value
                     )}
                   >
-                    <option value="volTotalAsc">Volume Total ↑</option>
-                    <option value="volTotalDesc">Volume Total ↓</option>
+                    <option value="volTotalAsc">Total Volume ↑</option>
+                    <option value="volTotalDesc">Total Volume ↓</option>
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                {/* <th className="px-4 py-3 text-left">
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
@@ -1021,7 +1078,7 @@
                     <option value="outputAsc">Output Balance ↑</option>
                     <option value="outputDesc">Output Balance ↓</option>
                   </select>
-                </th>
+                </th> */}
 
                 <th className="px-4 py-3 text-left">
                   <select
@@ -1031,8 +1088,34 @@
                       e.target.value
                     )}
                   >
-                    <option value="inputDepositWithdrawalsAsc">Input Deposits / Withdrawals ↑</option>
-                    <option value="inputDepositWithdrawalsDesc">Input Deposits / Withdrawals ↓</option>
+                    <option value="inputDepositWithdrawalsAsc">Total Deposits ↑</option>
+                    <option value="inputDepositWithdrawalsDesc">Total Deposits ↓</option>
+                  </select>
+                </th>
+
+                {/* <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="outputDepositWithdrawalsAsc">Total Inputs ↑</option>
+                    <option value="outputDepositWithdrawalsDesc">Total Inputs ↓</option>
+                  </select>
+                </th> */}
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="inputsAsc">Total Inputs (Withdrawals + Balances) ↑</option>
+                    <option value="inputsDesc">Total Inputs (Withdrawals + Balances) ↓</option>
                   </select>
                 </th>
 
@@ -1044,11 +1127,10 @@
                       e.target.value
                     )}
                   >
-                    <option value="outputDepositWithdrawalsAsc">Output Deposits / Withdrawals ↑</option>
-                    <option value="outputDepositWithdrawalsDesc">Output Deposits / Withdrawals ↓</option>
+                    <option value="differentialAsc">Absolute Change ↑</option>
+                    <option value="differentialDesc">Absolute Change ↓</option>
                   </select>
                 </th>
-
                 <th className="px-4 py-3 text-left">
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
@@ -1057,21 +1139,8 @@
                       e.target.value
                     )}
                   >
-                    <option value="inputsAsc">Inputs ↑</option>
-                    <option value="inputsDesc">Inputs ↓</option>
-                  </select>
-                </th>
-
-                <th className="px-4 py-3 text-left">
-                  <select
-                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
-                    onChange={(e) => handleSortByVaultBalance(
-                      sortedOrders, 
-                      e.target.value
-                    )}
-                  >
-                    <option value="differentialAsc">Change ↑</option>
-                    <option value="differentialDesc">Change ↓</option>
+                    <option value="differentialAsc">Percentage Change ↑</option>
+                    <option value="differentialDesc">Percentage Change ↓</option>
                   </select>
                 </th>
               </>
@@ -1335,8 +1404,7 @@
                           )}
                         </td>
 
-                        {/* Input Balance */}
-                        <td className="px-4 py-3 text-sm">
+                        {/* <td className="px-4 py-3 text-sm">
                           {order.inputBalances.map((input, index) => (
                             <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
                               <span className="font-semibold">{input.inputToken}</span>
@@ -1345,7 +1413,6 @@
                           ))}
                         </td>
 
-                        {/* Output Balance */}
                         <td className="px-4 py-3 text-sm">
                           {order.outputBalances.map((output, index) => (
                             <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
@@ -1353,43 +1420,41 @@
                               <span className="text-gray-800">{formatBalance(output.outputTokenBalance)}</span>
                             </div>
                           ))}
-                        </td>
-
-                        {/* Input Deposits/Withdrawals */}
+                        </td> */}
+                        
+                        {/* Total Deposits */}
                         <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
-                            <span>Loading...</span>
-                          ) : (
-                            order?.inputDepositsWithdraws?.map((input, idx) => (
-                              <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                <span className="font-semibold">{input.inputToken}</span>
-                                <div className="flex flex-col text-right">
-                                  <span className="text-green-600 font-medium">+{formatBalance(input.totalVaultDeposits)}</span>
-                                  <span className="text-red-600 font-medium">{formatBalance(input.totalVaultWithdrawals)}</span>
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              Loading...
+                            </div>
+                          ) : order?.inputDepositsWithdraws?.length > 0 || order?.outputDepositsWithdraws?.length > 0 ? (
+                            <>
+                              {/* Input Vaults */}
+                              {/* {order?.inputDepositsWithdraws?.map((input, idx) => (
+                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
+                                  <span className="font-semibold">{input.inputToken}</span>
+                                  <span className="text-gray-600 font-medium">{formatBalance(input.totalVaultDeposits)}</span>
                                 </div>
-                              </div>
-                            ))
+                              ))} */}
+
+                              {/* Output Vaults */}
+                              {order?.outputDepositsWithdraws?.map((output, idx) => (
+                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                  <span className="font-semibold">{output.outputToken}</span>
+                                  <span className="text-gray-600 font-medium">{formatBalance(output.totalVaultDeposits)}</span>
+                                </div>
+                              ))}
+                            </>
+                          ) : (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              N/A
+                            </div>
                           )}
                         </td>
+                        
 
-                        {/* Output Deposits/Withdrawals */}
-                        <td className="px-4 py-3 text-sm">
-                          {loadingDeposits ? (
-                            <span>Loading...</span>
-                          ) : (
-                            order?.outputDepositsWithdraws?.map((output, idx) => (
-                              <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                <span className="font-semibold">{output.outputToken}</span>
-                                <div className="flex flex-col text-right">
-                                  <span className="text-green-600 font-medium">+{formatBalance(output.totalVaultDeposits)}</span>
-                                  <span className="text-red-600 font-medium">{formatBalance(output.totalVaultWithdrawals)}</span>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </td>
-
-                        {/* Combined Vault Inputs */}
+                        {/* Total Vault Inputs */}
                         <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
                             <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
@@ -1406,12 +1471,12 @@
                               ))}
 
                               {/* Output Vaults */}
-                              {order?.outputDepositsWithdraws?.map((output, idx) => (
+                              {/* {order?.outputDepositsWithdraws?.map((output, idx) => (
                                 <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
                                   <span className="font-semibold">{output.outputToken}</span>
                                   <span className="text-gray-600 font-medium">{formatBalance(output.currentVaultInputs)}</span>
                                 </div>
-                              ))}
+                              ))} */}
                             </>
                           ) : (
                             <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
@@ -1420,7 +1485,7 @@
                           )}
                         </td>
 
-                        {/* Combined Vault Differential (Amount & Percentage) */}
+                        {/* Absolute Change */}
                         <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
                             <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
@@ -1434,6 +1499,40 @@
                                   <span className="font-semibold">{input.inputToken}</span>
                                   <div className="flex flex-col text-right">
                                     <span className="text-gray-800 font-medium">{formatBalance(input.curerentVaultDifferential)}</span>
+                                  </div>
+                                </div>
+                              ))}
+
+                              {/* Output Vault Differential */}
+                              {/* {order?.outputDepositsWithdraws?.map((output, idx) => (
+                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                  <span className="font-semibold">{output.outputToken}</span>
+                                  <div className="flex flex-col text-right">
+                                    <span className="text-gray-800 font-medium">{formatBalance(output.curerentVaultDifferential)}</span>
+                                  </div>
+                                </div>
+                              ))} */}
+                            </>
+                          ) : (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              N/A
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Percentage Change */}
+                        <td className="px-4 py-3 text-sm">
+                          {loadingDeposits ? (
+                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                              Loading...
+                            </div>
+                          ) : order?.inputDepositsWithdraws?.length > 0 || order?.outputDepositsWithdraws?.length > 0 ? (
+                            <>
+                              {/* Input Vault Differential */}
+                              {order?.inputDepositsWithdraws?.map((input, idx) => (
+                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
+                                  <span className="font-semibold">{input.inputToken}</span>
+                                  <div className="flex flex-col text-right">
                                     <span className={`font-medium ${input.vaultDifferentialPercentage >= 0 ? "text-green-600" : "text-red-600"}`}>
                                       {input.vaultDifferentialPercentage}%
                                     </span>
@@ -1442,17 +1541,16 @@
                               ))}
 
                               {/* Output Vault Differential */}
-                              {order?.outputDepositsWithdraws?.map((output, idx) => (
+                              {/* {order?.outputDepositsWithdraws?.map((output, idx) => (
                                 <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
                                   <span className="font-semibold">{output.outputToken}</span>
                                   <div className="flex flex-col text-right">
-                                    <span className="text-gray-800 font-medium">{formatBalance(output.curerentVaultDifferential)}</span>
                                     <span className={`font-medium ${output.vaultDifferentialPercentage >= 0 ? "text-green-600" : "text-red-600"}`}>
                                       {output.vaultDifferentialPercentage}%
                                     </span>
                                   </div>
                                 </div>
-                              ))}
+                              ))} */}
                             </>
                           ) : (
                             <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">

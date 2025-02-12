@@ -17,10 +17,19 @@
   };
 
   const formatBalance = (balance) => {
-    const num = parseFloat(balance);
-    if (num >= 1e6) return (num / 1e6).toFixed(2) + "M";
-    if (num >= 1e3) return (num / 1e3).toFixed(2) + "K";
-    return num.toFixed(2);
+      const num = parseFloat(balance);
+      if (isNaN(num)) return "0.00";
+      const absNum = Math.abs(num);
+      let formatted;
+      if (absNum >= 1e6) {
+          formatted = (absNum / 1e6).toFixed(2) + "M";
+      } else if (absNum >= 1e3) {
+          formatted = (absNum / 1e3).toFixed(2) + "K";
+      } else {
+          formatted = absNum.toFixed(2);
+      }
+
+      return num < 0 ? `-${formatted}` : formatted;
   };
 
   const calculateTotalVolume = (trades) => {
@@ -346,6 +355,22 @@
       let sorted = [...orders];
     
       switch (sortType) {
+        case "orderRoiAsc":
+          sorted.sort((a, b) => a.orderRoi - b.orderRoi);
+          break;
+    
+        case "orderRoiDesc":
+          sorted.sort((a, b) => b.orderRoi - a.orderRoi);
+          break;
+
+        case "orderApyAsc":
+          sorted.sort((a, b) => a.orderApy - b.orderApy);
+          break;
+    
+        case "orderApyDesc":
+          sorted.sort((a, b) => b.orderApy - a.orderApy);
+          break;
+
         case "orderDurationAsc":
           sorted.sort((a, b) => (now - a.timestampAdded) - (now - b.timestampAdded));
           break;
@@ -1166,8 +1191,8 @@
                       e.target.value
                     )}
                   >
-                    <option value="">ROI % ↑</option>
-                    <option value="">ROI % ↓</option>
+                    <option value="orderRoiAsc">ROI % ↑</option>
+                    <option value="orderRoiDesc">ROI % ↓</option>
                   </select>
                 </th>
                 <th className="px-4 py-3 text-left">
@@ -1178,8 +1203,8 @@
                       e.target.value
                     )}
                   >
-                    <option value="">$ Projected APY ↑</option>
-                    <option value="">$ Projected APY ↓</option>
+                    <option value="orderApyAsc">$ Projected APY ↑</option>
+                    <option value="orderApyDesc">$ Projected APY ↓</option>
                   </select>
                 </th>
 

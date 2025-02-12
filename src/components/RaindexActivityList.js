@@ -73,6 +73,22 @@ const OrdersTable = () => {
       let sorted = [...orders];
     
       switch (sortType) {
+        case "firstTradeAsc":
+          sorted.sort((a, b) => a.firstTrade - b.firstTrade);
+          break;
+    
+        case "firstTradeDesc":
+          sorted.sort((a, b) => b.firstTrade - a.firstTrade);
+          break;
+
+        case "lastTradeAsc":
+          sorted.sort((a, b) => a.lastTrade - b.lastTrade);
+          break;
+    
+        case "lastTradeDesc":
+          sorted.sort((a, b) => b.lastTrade - a.lastTrade);
+          break;
+
         case "totalTradesAsc":
           sorted.sort((a, b) => a.trades.length - b.trades.length);
           break;
@@ -317,8 +333,32 @@ const OrdersTable = () => {
 
             {(activeTab === "24h" || activeTab === "weekly") && (
               <>
-                <th className="px-4 py-3 text-left">Last Trade</th>
-                <th className="px-4 py-3 text-left">First Trade</th>
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      activeTab === "24h" ? dailyData : weeklyData, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="lastTradeAsc">Last Trade ↑</option>
+                    <option value="lastTradeDesc">Last Trade ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      activeTab === "24h" ? dailyData : weeklyData, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="firstTradeAsc">First Trade ↑</option>
+                    <option value="firstTradeDesc">First Trade ↓</option>
+                  </select>
+                </th>
+
                 <th className="px-4 py-3 text-left">Order Status</th>
                 <th className="px-4 py-3 text-center">
                   <select
@@ -328,8 +368,8 @@ const OrdersTable = () => {
                       e.target.value
                     )}
                   >
-                    <option value="totalTradesAsc">Total ↑</option>
-                    <option value="totalTradesDesc">Total ↓</option>
+                    <option value="totalTradesAsc">Total Trades ↑</option>
+                    <option value="totalTradesDesc">Total Trades ↓</option>
                   </select>
                 </th>
 
@@ -341,8 +381,8 @@ const OrdersTable = () => {
                       e.target.value
                     )}
                   >
-                    <option value="trades24hAsc">24h ↑</option>
-                    <option value="trades24hDesc">24h ↓</option>
+                    <option value="trades24hAsc">24h Trades ↑</option>
+                    <option value="trades24hDesc">24h Trades ↓</option>
                   </select>
                 </th>
 
@@ -380,8 +420,8 @@ const OrdersTable = () => {
                       e.target.value
                     )}
                   >
-                    <option value="volTotalAsc">Volume Total ↑</option>
-                    <option value="volTotalDesc">Volume Total ↓</option>
+                    <option value="volTotalAsc">Total Volume ↑</option>
+                    <option value="volTotalDesc">Total Volume ↓</option>
                   </select>
                 </th>
 
@@ -393,8 +433,8 @@ const OrdersTable = () => {
                       e.target.value
                     )}
                   >
-                    <option value="vol24hAsc">Volume 24h ↑</option>
-                    <option value="vol24hDesc">Volume 24h ↓</option>
+                    <option value="vol24hAsc">24h Volume ↑</option>
+                    <option value="vol24hDesc">24h Volume ↓</option>
                   </select>
                 </th>
 
@@ -463,56 +503,114 @@ const OrdersTable = () => {
                                 <td className="px-4 py-3 text-sm text-center">{order.trades.length}</td>
                                 <td className="px-4 py-3 text-sm text-center">{order.trades24h}</td>
       
-                                {/* Total Volume */}
-                                <td className="px-4 py-3 text-sm">
+                               <td className="px-4 py-3 text-sm">
                                   {order.volumeTotal.length > 0 ? (
-                                    order.volumeTotal.map((output, index) => (
-                                      <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                        <span className="font-semibold">{output.token}</span>
-                                        <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
-                                      </div>
-                                    ))
+                                    <>
+                                    {
+                                      order.volumeTotal.map((output, index) => (
+                                        <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
+                                          <span className="font-semibold">{output.token}</span>
+                                          <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
+                                        </div>
+                                      ))
+                                    }
+                                    <div
+                                      className="flex justify-between items-center px-3 py-2 rounded-lg shadow-sm text-sm font-medium"
+                                    >
+                                      <span className="font-semibold text-gray-600">Total Volume (USD)</span>
+                                      <span>
+                                      ${formatBalance(
+                                        order.orderTotalVolumeUsd
+                                      )}
+                                    </span>
+        
+                                    </div>
+                                    </>
                                   ) : (
-                                    <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
-                                            N/A
-                                      </div>
+                                    <div className="flex justify-center items-center h-10 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                                              N/A
+                                    </div>
                                   )}
                                 </td>
 
                                 {/* 24H Volume */}
                                 <td className="px-4 py-3 text-sm">
                                   {order.volume24H.length > 0 ? (
-                                    order.volume24H.map((input, index) => (
-                                      <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                        <span className="font-semibold">{input.token}</span>
-                                        <span className="text-gray-800">{formatBalance(input.totalVolume)}</span>
-                                      </div>
-                                    ))
+                                    <>
+                                    {
+                                      order.volume24H.map((output, index) => (
+                                        <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
+                                          <span className="font-semibold">{output.token}</span>
+                                          <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
+                                        </div>
+                                      ))
+                                    }
+                                    <div
+                                      className="flex justify-between items-center px-3 py-2 rounded-lg shadow-sm text-sm font-medium"
+                                    >
+                                      <span className="font-semibold text-gray-600">24H Volume (USD)</span>
+                                      <span>
+                                      ${formatBalance(
+                                        order.order24hVolumeUsd
+                                      )}
+                                    </span>
+        
+                                    </div>
+                                    </>
                                   ) : (
-                                    <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
-                                            N/A
-                                      </div>
+                                    <div className="flex justify-center items-center h-10 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                                              N/A
+                                    </div>
                                   )}
                                 </td>
 
                                 {/* Input Balance */}
                                 <td className="px-4 py-3 text-sm">
-                                  {order.inputBalances.map((input, index) => (
-                                    <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                      <span className="font-semibold">{input.inputToken}</span>
-                                      <span className="text-gray-800">{formatBalance(input.inputTokenBalance)}</span>
-                                    </div>
-                                  ))}
+                                  <>
+                                      {order.inputBalances.map((input, index) => (
+                                        
+                                          <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
+                                            <span className="font-semibold">{input.inputToken}</span>
+                                            <span className="text-gray-800">{formatBalance(input.inputTokenBalance)}</span>
+                                          </div>
+                                      ))}
+                                      <div
+                                        className="flex justify-between items-center px-3 py-2 rounded-lg shadow-sm text-sm font-medium"
+                                      >
+                                        <span className="font-semibold text-gray-600">USD : </span>
+                                        <span>
+                                          ${formatBalance(
+                                            order.inputBalances.reduce((sum, input) => {
+                                              return sum + (parseFloat(input.inputTokenBalance) * parseFloat(order.tokenPriceMap[input.inputTokenAddress.toLowerCase()]));
+                                            }, 0)
+                                          )}
+                                        </span>
+                                      </div>
+                                  </>
                                 </td>
       
                                 {/* Output Balance */}
                                 <td className="px-4 py-3 text-sm">
-                                  {order.outputBalances.map((output, index) => (
-                                    <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                      <span className="font-semibold">{output.outputToken}</span>
-                                      <span className="text-gray-800">{formatBalance(output.outputTokenBalance)}</span>
+                                  <>
+                                    {order.outputBalances.map((output, index) => (
+                                      <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
+                                        <span className="font-semibold">{output.outputToken}</span>
+                                        <span className="text-gray-800">{formatBalance(output.outputTokenBalance)}</span>
+                                      </div>
+                                    ))}
+                                    <div
+                                      className="flex justify-between items-center px-3 py-2 rounded-lg shadow-sm text-sm font-medium"
+                                    >
+                                      <span className="font-semibold text-gray-600">USD : </span>
+                                      <span>
+                                        ${formatBalance(
+                                          order.outputBalances.reduce((sum, output) => {
+                                            return sum + (parseFloat(output.outputTokenBalance) * parseFloat(order.tokenPriceMap[output.outputTokenAddress.toLowerCase()]));
+                                          }, 0)
+                                        )}
+                                      </span>
                                     </div>
-                                  ))}
+                                  </>
                                 </td>
 
                                 <td className="py-2 px-4 text-blue-500 underline">
@@ -586,13 +684,13 @@ const OrdersTable = () => {
                                 <td className="px-4 py-3 text-sm">
                                     {order.volumeTotal.length > 0 ? (
                                       order.volumeTotal.map((output, index) => (
-                                        <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                        <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                                           <span className="font-semibold">{output.token}</span>
                                           <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
                                         </div>
                                       ))
                                     ) : (
-                                      <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                                      <div className="flex justify-center items-center h-10 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
                                             N/A
                                       </div>
                                     )}
@@ -602,13 +700,13 @@ const OrdersTable = () => {
                                   <td className="px-4 py-3 text-sm">
                                     {order.volume24H.length > 0 ? (
                                       order.volume24H.map((input, index) => (
-                                        <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                        <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                                           <span className="font-semibold">{input.token}</span>
                                           <span className="text-gray-800">{formatBalance(input.totalVolume)}</span>
                                         </div>
                                       ))
                                     ) : (
-                                      <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                                      <div className="flex justify-center items-center h-10 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
                                             N/A
                                       </div>
                                     )}
@@ -617,7 +715,7 @@ const OrdersTable = () => {
                                   {/* Input Balance */}
                                   <td className="px-4 py-3 text-sm">
                                     {order.inputBalances.map((input, index) => (
-                                      <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                      <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                                         <span className="font-semibold">{input.inputToken}</span>
                                         <span className="text-gray-800">{formatBalance(input.inputTokenBalance)}</span>
                                       </div>
@@ -627,7 +725,7 @@ const OrdersTable = () => {
                                   {/* Output Balance */}
                                   <td className="px-4 py-3 text-sm">
                                     {order.outputBalances.map((output, index) => (
-                                      <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                      <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                                         <span className="font-semibold">{output.outputToken}</span>
                                         <span className="text-gray-800">{formatBalance(output.outputTokenBalance)}</span>
                                       </div>
@@ -660,7 +758,7 @@ const OrdersTable = () => {
   
   const RaindexActivityList = () => {
     return (
-      <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="p-6 min-h-screen">
         {/* New Native Header */}
         <div className="bg-gray-800 text-white p-4 flex flex-col md:flex-row items-center justify-between rounded-lg shadow-lg">
           {/* Left Side: Header */}

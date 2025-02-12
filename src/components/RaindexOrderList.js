@@ -101,6 +101,31 @@
 
         const trades24h = trades.filter((trade) => now - parseInt(trade.timestamp) <= 86400);
 
+        const volumeTotal = calculateTotalVolume(trades).map(tokenData => {
+              const tokenAddrLower = tokenData.tokenAddress.toLowerCase();
+              const usdPrice = order.tokenPriceMap[tokenAddrLower] || 0; 
+              const totalVolumeUsd = parseFloat(tokenData.totalVolume) * usdPrice;
+          
+              return {
+                  ...tokenData,
+                  totalVolumeUsd: totalVolumeUsd.toFixed(2) 
+              };
+          });
+          
+        const volume24H = calculateTotalVolume(trades24h).map(tokenData => {
+            const tokenAddrLower = tokenData.tokenAddress.toLowerCase();
+            const usdPrice = order.tokenPriceMap[tokenAddrLower] || 0; 
+            const totalVolumeUsd = parseFloat(tokenData.totalVolume) * usdPrice;
+        
+            return {
+                ...tokenData,
+                totalVolumeUsd: totalVolumeUsd.toFixed(2) 
+            };
+        });
+
+        const orderTotalVolumeUsd = volumeTotal.reduce((sum, token) => sum + (parseFloat(token.totalVolumeUsd) || 0), 0)
+        const order24hVolumeUsd = volume24H.reduce((sum, token) => sum + (parseFloat(token.totalVolumeUsd) || 0), 0)
+
         // Input Balances
         const inputBalances = order.inputs.map((input) => {
           return {
@@ -211,8 +236,10 @@
           outputBalances: outputBalances,
           inputChange24h: inputChange24h,
           outputChange24h: outputChange24h,
-          volumeTotal : calculateTotalVolume(trades),
-          volume24H :  calculateTotalVolume(trades24h)
+          volumeTotal,
+          volume24H,
+          order24hVolumeUsd,
+          orderTotalVolumeUsd
         }
     });
   }
@@ -647,31 +674,7 @@
       }
       const transformedOrders = ordersWithTrades.map((order) => {
       
-      const tokenPriceMap = {};
-
-      // Populate the price map from order.inputs
-      order.inputs.forEach(input => {
-          if (input.token.address && input.usdPrice !== undefined) {
-              tokenPriceMap[input.token.address.toLowerCase()] = parseFloat(input.usdPrice.currentPrice);
-          }
-      });
       
-      // Populate the price map from order.outputs (overwrite if necessary)
-      order.outputs.forEach(output => {
-          if (output.token.address && output.usdPrice !== undefined) {
-              tokenPriceMap[output.token.address.toLowerCase()] = parseFloat(output.usdPrice.currentPrice);
-          }
-      });
-      order["volumeTotal"] = order.volumeTotal.map(tokenData => {
-        const tokenAddrLower = tokenData.tokenAddress.toLowerCase();
-        const usdPrice = tokenPriceMap[tokenAddrLower] || 0; 
-        const totalVolumeUsd = parseFloat(tokenData.totalVolume) * usdPrice;
-    
-        return {
-            ...tokenData,
-            totalVolumeUsd: totalVolumeUsd.toFixed(2) 
-        };
-    });
       const orderDuration = now - order.timestampAdded
       const secondsInYear = 365 * 86400
       // Unique input vaults
@@ -785,11 +788,10 @@
       const orderRoiPercentage = (((totalInputsChange - totalDepositUsd) / totalDepositUsd) * 100).toFixed(2)
       const orderApyPercentage = (orderRoiPercentage * secondsInYear) / orderDuration
 
-      const orderTotalVolumeUsd = order.volumeTotal.reduce((sum, token) => sum + (parseFloat(token.totalVolumeUsd) || 0), 0)
+      
 
       return {
           ...order,
-          orderTotalVolumeUsd,
           orderRoi,
           orderRoiPercentage,
           orderApy,
@@ -832,9 +834,7 @@
 
             {(activeTab === "trades") && (
               <>
-                <th className="px-4 py-3 text-left">Last Trade</th>
-                <th className="px-4 py-3 text-left">First Trade</th>
-                <th className="px-4 py-3 text-center">
+                <th className="px-4 py-3 text-left">
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
@@ -842,21 +842,8 @@
                       e.target.value
                     )}
                   >
-                    <option value="totalTradesAsc">Total ↑</option>
-                    <option value="totalTradesDesc">Total ↓</option>
-                  </select>
-                </th>
-
-                <th className="px-4 py-3 text-center">
-                  <select
-                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
-                    onChange={(e) => handleSortByVaultBalance(
-                      sortedOrders, 
-                      e.target.value
-                    )}
-                  >
-                    <option value="trades24hAsc">24h ↑</option>
-                    <option value="trades24hDesc">24h ↓</option>
+                    <option value="lastTradeAsc">Last Trade ↑</option>
+                    <option value="lastTradeDesc">Last Trade ↓</option>
                   </select>
                 </th>
 
@@ -868,8 +855,34 @@
                       e.target.value
                     )}
                   >
-                    <option value="volTotalAsc">Volume Total ↑</option>
-                    <option value="volTotalDesc">Volume Total ↓</option>
+                    <option value="firstTradeAsc">First Trade ↑</option>
+                    <option value="firstTradeDesc">First Trade ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-center">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="totalTradesAsc">Total Trades ↑</option>
+                    <option value="totalTradesDesc">Total Trades ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-center">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="trades24hAsc">24h Trades ↑</option>
+                    <option value="trades24hDesc">24h Trades ↓</option>
                   </select>
                 </th>
 
@@ -881,8 +894,21 @@
                       e.target.value
                     )}
                   >
-                    <option value="vol24hAsc">Volume 24h ↑</option>
-                    <option value="vol24hDesc">Volume 24h ↓</option>
+                    <option value="volTotalAsc">Total Volume ↑</option>
+                    <option value="volTotalDesc">Total Volume ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="vol24hAsc">24h Volume ↑</option>
+                    <option value="vol24hDesc">24h Volume ↓</option>
                   </select>
                 </th>
 
@@ -917,9 +943,7 @@
 
             {(activeTab === "balance") && (
               <>
-                <th className="px-4 py-3 text-left">Last Trade</th>
-                <th className="px-4 py-3 text-left">First Trade</th>
-                <th className="px-4 py-3 text-center">
+                <th className="px-4 py-3 text-left">
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
@@ -927,8 +951,8 @@
                       e.target.value
                     )}
                   >
-                    <option value="trades24hAsc">24h ↑</option>
-                    <option value="trades24hDesc">24h ↓</option>
+                    <option value="lastTradeAsc">Last Trade ↑</option>
+                    <option value="lastTradeDesc">Last Trade ↓</option>
                   </select>
                 </th>
 
@@ -940,8 +964,34 @@
                       e.target.value
                     )}
                   >
-                    <option value="vol24hAsc">Volume 24h ↑</option>
-                    <option value="vol24hDesc">Volume 24h ↓</option>
+                    <option value="firstTradeAsc">First Trade ↑</option>
+                    <option value="firstTradeDesc">First Trade ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-center">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="trades24hAsc">24h Trades ↑</option>
+                    <option value="trades24hDesc">24h Trades ↓</option>
+                  </select>
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  <select
+                    className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
+                    onChange={(e) => handleSortByVaultBalance(
+                      sortedOrders, 
+                      e.target.value
+                    )}
+                  >
+                    <option value="vol24hAsc">24h Volume ↑</option>
+                    <option value="vol24hDesc">24h Volume ↓</option>
                   </select>
                 </th>
 
@@ -1314,14 +1364,29 @@
                         {/* Total Volume */}
                         <td className="px-4 py-3 text-sm">
                           {order.volumeTotal.length > 0 ? (
-                            order.volumeTotal.map((output, index) => (
-                              <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                <span className="font-semibold">{output.token}</span>
-                                <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
-                              </div>
-                            ))
+                            <>
+                            {
+                              order.volumeTotal.map((output, index) => (
+                                <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
+                                  <span className="font-semibold">{output.token}</span>
+                                  <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
+                                </div>
+                              ))
+                            }
+                            <div
+                              className="flex justify-between items-center px-3 py-2 rounded-lg shadow-sm text-sm font-medium"
+                            >
+                              <span className="font-semibold text-gray-600">Total Volume (USD)</span>
+                              <span>
+                              ${formatBalance(
+                                order.orderTotalVolumeUsd
+                              )}
+                            </span>
+
+                            </div>
+                            </>
                           ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
                                       N/A
                             </div>
                           )}
@@ -1330,14 +1395,29 @@
                         {/* 24H Volume */}
                         <td className="px-4 py-3 text-sm">
                           {order.volume24H.length > 0 ? (
-                            order.volume24H.map((input, index) => (
-                              <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                <span className="font-semibold">{input.token}</span>
-                                <span className="text-gray-800">{formatBalance(input.totalVolume)}</span>
-                              </div>
-                            ))
+                            <>
+                            {
+                              order.volume24H.map((output, index) => (
+                                <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
+                                  <span className="font-semibold">{output.token}</span>
+                                  <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
+                                </div>
+                              ))
+                            }
+                            <div
+                              className="flex justify-between items-center px-3 py-2 rounded-lg shadow-sm text-sm font-medium"
+                            >
+                              <span className="font-semibold text-gray-600">24H Volume (USD)</span>
+                              <span>
+                              ${formatBalance(
+                                order.order24hVolumeUsd
+                              )}
+                            </span>
+
+                            </div>
+                            </>
                           ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
                                       N/A
                             </div>
                           )}
@@ -1346,7 +1426,7 @@
                         {/* Input Balance */}
                         <td className="px-4 py-3 text-sm">
                           {order.inputBalances.map((input, index) => (
-                            <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                            <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                               <span className="font-semibold">{input.inputToken}</span>
                               <span className="text-gray-800">{formatBalance(input.inputTokenBalance)}</span>
                             </div>
@@ -1356,17 +1436,12 @@
                         {/* Output Balance */}
                         <td className="px-4 py-3 text-sm">
                           {order.outputBalances.map((output, index) => (
-                            <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                            <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                               <span className="font-semibold">{output.outputToken}</span>
                               <span className="text-gray-800">{formatBalance(output.outputTokenBalance)}</span>
                             </div>
                           ))}
                         </td>
-
-
-
-                            
-                        
 
                         <td className="py-2 px-4 text-blue-500 underline">
                               <a href={getOrderLink(order.orderHash, order.network)} target="_blank" rel="noopener noreferrer">
@@ -1392,13 +1467,13 @@
                         <td className="px-4 py-3 text-sm">
                           {order.volumeTotal.length > 0 ? (
                             order.volumeTotal.map((output, index) => (
-                              <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                              <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                                 <span className="font-semibold">{output.token}</span>
                                 <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
                               </div>
                             ))
                           ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
                                       N/A
                             </div>
                           )}
@@ -1406,7 +1481,7 @@
 
                         {/* <td className="px-4 py-3 text-sm">
                           {order.inputBalances.map((input, index) => (
-                            <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                            <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                               <span className="font-semibold">{input.inputToken}</span>
                               <span className="text-gray-800">{formatBalance(input.inputTokenBalance)}</span>
                             </div>
@@ -1415,7 +1490,7 @@
 
                         <td className="px-4 py-3 text-sm">
                           {order.outputBalances.map((output, index) => (
-                            <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                            <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                               <span className="font-semibold">{output.outputToken}</span>
                               <span className="text-gray-800">{formatBalance(output.outputTokenBalance)}</span>
                             </div>
@@ -1425,14 +1500,14 @@
                         {/* Total Deposits */}
                         <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               Loading...
                             </div>
                           ) : order?.inputDepositsWithdraws?.length > 0 || order?.outputDepositsWithdraws?.length > 0 ? (
                             <>
                               {/* Input Vaults */}
                               {/* {order?.inputDepositsWithdraws?.map((input, idx) => (
-                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
+                                <div key={idx} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
                                   <span className="font-semibold">{input.inputToken}</span>
                                   <span className="text-gray-600 font-medium">{formatBalance(input.totalVaultDeposits)}</span>
                                 </div>
@@ -1440,14 +1515,14 @@
 
                               {/* Output Vaults */}
                               {order?.outputDepositsWithdraws?.map((output, idx) => (
-                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                <div key={idx} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                                   <span className="font-semibold">{output.outputToken}</span>
                                   <span className="text-gray-600 font-medium">{formatBalance(output.totalVaultDeposits)}</span>
                                 </div>
                               ))}
                             </>
                           ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               N/A
                             </div>
                           )}
@@ -1457,14 +1532,14 @@
                         {/* Total Vault Inputs */}
                         <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               Loading...
                             </div>
                           ) : order?.inputDepositsWithdraws?.length > 0 || order?.outputDepositsWithdraws?.length > 0 ? (
                             <>
                               {/* Input Vaults */}
                               {order?.inputDepositsWithdraws?.map((input, idx) => (
-                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
+                                <div key={idx} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
                                   <span className="font-semibold">{input.inputToken}</span>
                                   <span className="text-gray-600 font-medium">{formatBalance(input.currentVaultInputs)}</span>
                                 </div>
@@ -1472,14 +1547,14 @@
 
                               {/* Output Vaults */}
                               {/* {order?.outputDepositsWithdraws?.map((output, idx) => (
-                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                <div key={idx} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                                   <span className="font-semibold">{output.outputToken}</span>
                                   <span className="text-gray-600 font-medium">{formatBalance(output.currentVaultInputs)}</span>
                                 </div>
                               ))} */}
                             </>
                           ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               N/A
                             </div>
                           )}
@@ -1488,14 +1563,14 @@
                         {/* Absolute Change */}
                         <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               Loading...
                             </div>
                           ) : order?.inputDepositsWithdraws?.length > 0 || order?.outputDepositsWithdraws?.length > 0 ? (
                             <>
                               {/* Input Vault Differential */}
                               {order?.inputDepositsWithdraws?.map((input, idx) => (
-                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
+                                <div key={idx} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
                                   <span className="font-semibold">{input.inputToken}</span>
                                   <div className="flex flex-col text-right">
                                     <span className="text-gray-800 font-medium">{formatBalance(input.curerentVaultDifferential)}</span>
@@ -1505,7 +1580,7 @@
 
                               {/* Output Vault Differential */}
                               {/* {order?.outputDepositsWithdraws?.map((output, idx) => (
-                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                <div key={idx} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                                   <span className="font-semibold">{output.outputToken}</span>
                                   <div className="flex flex-col text-right">
                                     <span className="text-gray-800 font-medium">{formatBalance(output.curerentVaultDifferential)}</span>
@@ -1514,7 +1589,7 @@
                               ))} */}
                             </>
                           ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               N/A
                             </div>
                           )}
@@ -1523,14 +1598,14 @@
                         {/* Percentage Change */}
                         <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               Loading...
                             </div>
                           ) : order?.inputDepositsWithdraws?.length > 0 || order?.outputDepositsWithdraws?.length > 0 ? (
                             <>
                               {/* Input Vault Differential */}
                               {order?.inputDepositsWithdraws?.map((input, idx) => (
-                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
+                                <div key={idx} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
                                   <span className="font-semibold">{input.inputToken}</span>
                                   <div className="flex flex-col text-right">
                                     <span className={`font-medium ${input.vaultDifferentialPercentage >= 0 ? "text-green-600" : "text-red-600"}`}>
@@ -1542,7 +1617,7 @@
 
                               {/* Output Vault Differential */}
                               {/* {order?.outputDepositsWithdraws?.map((output, idx) => (
-                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                <div key={idx} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                                   <span className="font-semibold">{output.outputToken}</span>
                                   <div className="flex flex-col text-right">
                                     <span className={`font-medium ${output.vaultDifferentialPercentage >= 0 ? "text-green-600" : "text-red-600"}`}>
@@ -1553,7 +1628,7 @@
                               ))} */}
                             </>
                           ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               N/A
                             </div>
                           )}
@@ -1582,14 +1657,29 @@
                         {/* 24H Volume */}
                         <td className="px-4 py-3 text-sm">
                           {order.volume24H.length > 0 ? (
-                            order.volume24H.map((input, index) => (
-                              <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
-                                <span className="font-semibold">{input.token}</span>
-                                <span className="text-gray-800">{formatBalance(input.totalVolume)}</span>
-                              </div>
-                            ))
+                            <>
+                            {
+                              order.volume24H.map((output, index) => (
+                                <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
+                                  <span className="font-semibold">{output.token}</span>
+                                  <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
+                                </div>
+                              ))
+                            }
+                            <div
+                              className="flex justify-between items-center px-3 py-2 rounded-lg shadow-sm text-sm font-medium"
+                            >
+                              <span className="font-semibold text-gray-600">24H Volume (USD)</span>
+                              <span>
+                              ${formatBalance(
+                                order.order24hVolumeUsd
+                              )}
+                            </span>
+
+                            </div>
+                            </>
                           ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
                                       N/A
                             </div>
                           )}
@@ -1598,7 +1688,7 @@
                         {/* Input Balance */}
                         <td className="px-4 py-3 text-sm">
                           {order.inputBalances.map((input, index) => (
-                            <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                            <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                               <span className="font-semibold">{input.inputToken}</span>
                               <span className="text-gray-800">{formatBalance(input.inputTokenBalance)}</span>
                             </div>
@@ -1608,7 +1698,7 @@
                         {/* Output Balance */}
                         <td className="px-4 py-3 text-sm">
                           {order.outputBalances.map((output, index) => (
-                            <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                            <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                               <span className="font-semibold">{output.outputToken}</span>
                               <span className="text-gray-800">{formatBalance(output.outputTokenBalance)}</span>
                             </div>
@@ -1659,21 +1749,21 @@
                         {/* Current Price */}
                         <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               Loading...
                             </div>
                           ) : order?.inputDepositsWithdraws?.length > 0 || order?.outputDepositsWithdraws?.length > 0 ? (
                             <>
                               {/* Input Vaults */}
                               {order?.inputDepositsWithdraws?.map((input, idx) => (
-                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
+                                <div key={idx} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm mb-1">
                                   <span className="font-semibold">{input.inputToken}</span>
                                   <span className="text-gray-600 font-medium">${formatBalance(input.inputTokenPriceUsd)}</span>
                                 </div>
                               ))}
                             </>
                           ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               N/A
                             </div>
                           )}
@@ -1687,14 +1777,14 @@
                             <>
                             {
                               order.volumeTotal.map((output, index) => (
-                                <div key={index} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                <div key={index} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                                   <span className="font-semibold">{output.token}</span>
                                   <span className="text-gray-800">{formatBalance(output.totalVolume)}</span>
                                 </div>
                               ))
                             }
                             <div
-                              className="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg shadow-sm text-sm font-medium"
+                              className="flex justify-between items-center px-3 py-2 rounded-lg shadow-sm text-sm font-medium"
                             >
                               <span className="font-semibold text-gray-600">Total Volume (USD)</span>
                               <span>
@@ -1706,7 +1796,7 @@
                             </div>
                             </>
                           ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-600 font-medium text-sm rounded-lg shadow-sm">
                                       N/A
                             </div>
                           )}
@@ -1716,7 +1806,7 @@
                         {/* Output Deposits/Withdrawals */}
                         <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               Loading...
                             </div>
                           ) : (
@@ -1724,7 +1814,7 @@
                               {order?.outputDepositsWithdraws?.map((output, idx) => (
                                 <div
                                   key={idx}
-                                  className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm"
+                                  className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm"
                                 >
                                   <span className="font-semibold">{output.outputToken}</span>
                                   <div className="flex flex-col text-right">
@@ -1737,7 +1827,7 @@
 
                               {order?.totalDepositUsd !== undefined && (
                                 <div
-                                  className="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg shadow-sm text-sm font-medium"
+                                  className="flex justify-between items-center px-3 py-2 rounded-lg shadow-sm text-sm font-medium"
                                 >
                                   <span className="font-semibold text-gray-600">Total (USD)</span>
                                   <span
@@ -1752,14 +1842,14 @@
                         {/* Combined Vault Inputs */}
                         <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               Loading...
                             </div>
                           ) : order?.inputDepositsWithdraws?.length > 0 || order?.outputDepositsWithdraws?.length > 0 ? (
                             <div className="space-y-2">
                               {/* Input Vaults */}
                               {order?.inputDepositsWithdraws?.map((input, idx) => (
-                                <div key={idx} className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm">
+                                <div key={idx} className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm">
                                   <span className="font-semibold">{input.inputToken}</span>
                                   <span className="text-gray-600 font-medium">{formatBalance(input.currentVaultInputs)}</span>
                                 </div>
@@ -1767,7 +1857,7 @@
 
                               {order?.totalInputsChange !== undefined && (
                                 <div
-                                  className="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg shadow-sm text-sm font-medium"
+                                  className="flex justify-between items-center px-3 py-2 rounded-lg shadow-sm text-sm font-medium"
                                 >
                                   <span className="font-semibold text-gray-600">Total Inputs (USD)</span>
                                   <span
@@ -1777,7 +1867,7 @@
                               )}
                             </div>
                           ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               N/A
                             </div>
                           )}
@@ -1787,7 +1877,7 @@
                         {/* ROI */}
                         <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               Loading...
                             </div>
                           ) : order?.inputDepositsWithdraws?.length > 0 ? (
@@ -1795,7 +1885,7 @@
                               {order?.inputDepositsWithdraws?.map((input, idx) => (
                                 <div
                                   key={idx}
-                                  className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm"
+                                  className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm"
                                 >
                                   <span className="font-semibold">{input.inputToken}</span>
                                   <div className="flex flex-col text-right">
@@ -1812,7 +1902,7 @@
                               
                               {order?.orderRoi !== undefined && (
                                 <div
-                                  className="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg shadow-sm text-sm font-medium"
+                                  className="flex justify-between items-center px-3 py-2 rounded-lg shadow-sm text-sm font-medium"
                                 >
                                   <span className="font-semibold text-gray-600">Total ROI (USD)</span>
                                   <span
@@ -1824,7 +1914,7 @@
                               )}
                             </div>
                           ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               N/A
                             </div>
                           )}
@@ -1833,7 +1923,7 @@
                         {/* ROI% */}
                         <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               Loading...
                             </div>
                           ) : order?.inputDepositsWithdraws?.length > 0 ? (
@@ -1841,7 +1931,7 @@
                               {order?.inputDepositsWithdraws?.map((input, idx) => (
                                 <div
                                   key={idx}
-                                  className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm"
+                                  className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm"
                                 >
                                   <span className="font-semibold">{input.inputToken}</span>
                                   <div className="flex flex-col text-right">
@@ -1858,7 +1948,7 @@
 
                               {order?.orderRoiPercentage !== undefined && (
                                 <div
-                                  className="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg shadow-sm text-sm font-medium"
+                                  className="flex justify-between items-center px-3 py-2 rounded-lg shadow-sm text-sm font-medium"
                                 >
                                   <span className="font-semibold text-gray-600">Total ROI%</span>
                                   <span
@@ -1870,7 +1960,7 @@
                               )}
                             </div>
                           ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               N/A
                             </div>
                           )}
@@ -1879,7 +1969,7 @@
                         {/* APY */}
                         <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               Loading...
                             </div>
                           ) : order?.inputDepositsWithdraws?.length > 0 ? (
@@ -1887,7 +1977,7 @@
                               {order?.inputDepositsWithdraws?.map((input, idx) => (
                                 <div
                                   key={idx}
-                                  className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm"
+                                  className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm"
                                 >
                                   <span className="font-semibold">{input.inputToken}</span>
                                   <div className="flex flex-col text-right">
@@ -1904,7 +1994,7 @@
                               
                               {order?.orderApy !== undefined && (
                                 <div
-                                  className="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg shadow-sm text-sm font-medium"
+                                  className="flex justify-between items-center px-3 py-2 rounded-lg shadow-sm text-sm font-medium"
                                 >
                                   <span className="font-semibold text-gray-600">Total Projected APY (USD)</span>
                                   <span
@@ -1916,7 +2006,7 @@
                               )}
                             </div>
                           ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               N/A
                             </div>
                           )}
@@ -1925,7 +2015,7 @@
                         {/* APY% */}
                         <td className="px-4 py-3 text-sm">
                           {loadingDeposits ? (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               Loading...
                             </div>
                           ) : order?.inputDepositsWithdraws?.length > 0 ? (
@@ -1933,7 +2023,7 @@
                               {order?.inputDepositsWithdraws?.map((input, idx) => (
                                 <div
                                   key={idx}
-                                  className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg shadow-sm text-sm"
+                                  className="flex justify-between px-3 py-2 rounded-lg shadow-sm text-sm"
                                 >
                                   <span className="font-semibold">{input.inputToken}</span>
                                   <div className="flex flex-col text-right">
@@ -1950,7 +2040,7 @@
 
                               {order?.orderApyPercentage !== undefined && (
                                 <div
-                                  className="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg shadow-sm text-sm font-medium"
+                                  className="flex justify-between items-center px-3 py-2 rounded-lg shadow-sm text-sm font-medium"
                                 >
                                   <span className="font-semibold text-gray-600">Total Projected APY%</span>
                                   <span
@@ -1962,7 +2052,7 @@
                               )}
                             </div>
                           ) : (
-                            <div className="flex justify-center items-center h-10 bg-gray-50 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
+                            <div className="flex justify-center items-center h-10 text-gray-400 font-medium text-sm rounded-lg shadow-sm">
                               N/A
                             </div>
                           )}
@@ -2018,9 +2108,23 @@
                 { orderHash: order.orderHash },
                 "trades",
             );
+
+            const tokenPriceMap = {};
+            const dataSources = [order.inputs, order.outputs];
+
+            for (const source of dataSources) {
+                for (const item of source) {
+                    if (item.token.address) {
+                        const tokenPrice = await getTokenPriceUsd(item.token.address, item.token.symbol)
+                        tokenPriceMap[item.token.address.toLowerCase()] = parseFloat(tokenPrice.currentPrice);
+                    }
+                }
+            }
+            
             order["trades"] = trades.sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp))
             order["network"] = network
             order["timestampAdded"] = order.timestampAdded
+            order["tokenPriceMap"] = tokenPriceMap
             ordersWithTrades[i] = order
         }
         return ordersWithTrades

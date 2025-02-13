@@ -231,7 +231,7 @@ const RaindexMarketData = () => {
     subtitles,
     formatter,
     cardSpan = 1,
-    cardHeight = 250
+    cardHeight = 250 // Allow dynamic card span (1 to 3)
   ) => {
     const bluePalette = generateColorPalette(colorKeys.length);
   

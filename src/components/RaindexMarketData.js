@@ -230,26 +230,24 @@ const RaindexMarketData = () => {
     colorKeys,
     subtitles,
     formatter,
-    cardSpan = 1 // Allow dynamic card span (1 or 2)
+    cardSpan = 1,
+    cardHeight = 250
   ) => {
-    console.log("dataSets : ", dataSets)
     const bluePalette = generateColorPalette(colorKeys.length);
   
-    // Clamp cardSpan to allowed range (1 to 2)
-    const validCardSpan = Math.min(Math.max(cardSpan, 1), 2);
+    // Clamp cardSpan to allowed range (1 to 3)
+    const validCardSpan = Math.min(Math.max(cardSpan, 1), 3);
+    const cardSpanClass = `col-span-${validCardSpan}`;
   
     // Calculate Y-axis domain
     const maxVal = Math.max(
       ...dataSets.flatMap((data) => data.map((item) => item.total || 0))
     );
-    const yAxisMax = maxVal + maxVal * 0.1; // 1% buffer
-    console.log("yAxisMax : ", yAxisMax)
+    const yAxisMax = maxVal + maxVal * 0.1;
   
     return (
       <div
-        className={`bg-white rounded-lg shadow-lg p-5 flex flex-col ${
-          validCardSpan === 2 ? "col-span-2" : "col-span-1"
-        }`}
+        className={`bg-white rounded-lg shadow-lg p-5 flex flex-col ${cardSpanClass}`}
       >
         {/* Chart Title */}
         <h3 className="text-lg font-semibold text-center mb-2 text-gray-800">{title}</h3>
@@ -263,7 +261,7 @@ const RaindexMarketData = () => {
         <div className="space-y-6">
           {dataSets.map((data, index) => (
             <div key={index} className="flex flex-col">
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={cardHeight}>
                 <BarChart
                   data={data}
                   margin={{ top: 10, right: 10, bottom: 20, left: 25 }}
@@ -271,8 +269,8 @@ const RaindexMarketData = () => {
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                   <YAxis
                     type="number"
-                    domain={[0, yAxisMax]} // Explicitly set domain
-                    allowDataOverflow={true} // Prevent automatic scaling
+                    domain={[0, yAxisMax]}
+                    allowDataOverflow={true}
                     label={{
                       value: yAxisLabel,
                       angle: -90,
@@ -325,7 +323,9 @@ const RaindexMarketData = () => {
                           }}
                         ></div>
                       </div>
-                      <div className="w-12 text-sm text-gray-600">{`${formatter(value)} ${percentage.toFixed(2)}%`}</div>
+                      <div className="w-12 text-sm text-gray-600">
+                        {`${formatter(value)} ${percentage.toFixed(2)}%`}
+                      </div>
                     </div>
                   );
                 })}
@@ -349,7 +349,7 @@ const RaindexMarketData = () => {
 
   const volFormatter = (value) => `$${formatValue(value)}`;
   const tradeFormatter = (value) => `${formatValue(value)}`;
-  const percentageFormater = (value) => `${formatValue(value)}`;
+  const percentageFormater = (value) => `${formatValue(value)}%`;
 
   const renderInsights = (totalRaindexTrades, totalExternalTrades, totalRaindexVolume, totalExternalVolume) => {
 
@@ -375,7 +375,7 @@ const RaindexMarketData = () => {
         {/* Header Section */}
         <div className="text-center mb-2">
           <h1 className="text-2xl font-bold text-gray-800">Market Insights</h1>
-          <p className="text-gray-600">Daily trading and volume statistics</p>
+          <p className="text-gray-600">Transaction and Volume Analysis</p>
         </div>
 
         {/* Pie Charts Section */}
@@ -383,7 +383,7 @@ const RaindexMarketData = () => {
           {/* Trades Pie Chart */}
           <div className="bg-white shadow-md rounded-lg p-5">
             <h3 className="text-lg font-semibold text-gray-700 text-center mb-4">
-              Trades Distribution
+            Transaction Source Breakdown
             </h3>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
@@ -391,8 +391,8 @@ const RaindexMarketData = () => {
                   data={pieDataTrades}
                   cx="50%"
                   cy="50%"
-                  innerRadius={50}
-                  outerRadius={70}
+                  innerRadius={70}
+                  outerRadius={90}
                   fill="#8884d8"
                   dataKey="value"
                 // label={(entry) => `${entry.name}: ${entry.percentage}%`}
@@ -403,7 +403,7 @@ const RaindexMarketData = () => {
                   ))}
                 </Pie>
                 <text x="50%" y="50%" dy={8} textAnchor="middle" fill={"#0A1320"}>
-                  Total: {totalTrades}
+                  Total: {formatValue(totalTrades)}
                 </text>
                 <Tooltip />
               </PieChart>
@@ -434,7 +434,7 @@ const RaindexMarketData = () => {
           {/* Volume Pie Chart */}
           <div className="bg-white shadow-md rounded-lg p-5">
             <h3 className="text-lg font-semibold text-gray-700 text-center mb-4">
-              Volume Distribution
+              Trading Volume Distribution
             </h3>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
@@ -442,8 +442,8 @@ const RaindexMarketData = () => {
                   data={pieDataVolume}
                   cx="50%"
                   cy="50%"
-                  innerRadius={50}
-                  outerRadius={70}
+                  innerRadius={70}
+                  outerRadius={90}
                   fill="#8884d8"
                   dataKey="value"
                 // label={(entry) => `${entry.name}: ${entry.percentage}%`}
@@ -520,7 +520,7 @@ const RaindexMarketData = () => {
                     <div className="flex justify-between items-start">
                       {/* Title Section */}
                       <h1 className="text-2xl font-bold text-gray-800">
-                        {selectedToken.toUpperCase()} Market Analysis Report
+                        {selectedToken.toUpperCase()} Token
                       </h1>
 
                       {/* Info Section */}
@@ -530,7 +530,7 @@ const RaindexMarketData = () => {
                           <p className="text-gray-700">{new Date().toLocaleString()}</p>
                         </div>
                         <div>
-                          <span className="block font-semibold text-gray-600">Report duration:</span>
+                          <span className="block font-semibold text-gray-600">Analysis Period:</span>
                           <p className="text-gray-700">
                             {new Date(customRange.from).toLocaleString()} -{" "}
                             {new Date(customRange.to).toLocaleString()}
@@ -556,20 +556,20 @@ const RaindexMarketData = () => {
                       durationTradeStats.length > 0 &&
                       renderBarChart(
                         durationTradeData,
-                        "Trades For Duration",
+                        "Trades Daily",
                         "Trades",
                         durationTradeStats.map((item) => item.name),
-                        `Trades over time`,
+                        `${durationTradeData[0][0].name} - ${durationTradeData[0][durationTradeData[0].length - 1].name}`,
                         tradeFormatter
                       )}
                     {durationVolumeData.length > 0 &&
                       durationVolumeStats.length > 0 &&
                       renderBarChart(
                         durationVolumeData,
-                        "Volume For Duration",
+                        "Volume Daily",
                         "Volume",
                         durationVolumeStats.map((item) => item.name),
-                        `Volume over time`,
+                        `${durationVolumeData[0][0].name} - ${durationVolumeData[0][durationVolumeData[0].length - 1].name}`,
                         volFormatter
                       )}
 
@@ -584,10 +584,10 @@ const RaindexMarketData = () => {
                               total: 100
                           }))
                       ),
-                        "Trades For Duration %",
+                        "Transaction Source Distribution %",
                         "Trades",
                         durationTradeStats.map((item) => item.name),
-                        `Trades over time`,
+                        `${durationTradeData[0][0].name} - ${durationTradeData[0][durationTradeData[0].length - 1].name}`,
                         percentageFormater
                       )}
                     {durationVolumeData.length > 0 &&
@@ -601,33 +601,35 @@ const RaindexMarketData = () => {
                               total: 100
                           }))
                       ),
-                        "Volume For Duration %",
+                        "Trading Volume Distribution %",
                         "Volume",
                         durationVolumeStats.map((item) => item.name),
-                        `Volume over time`,
+                        `${durationVolumeData[0][0].name} - ${durationVolumeData[0][durationVolumeData[0].length - 1].name}`,
                         percentageFormater
                       )}
                       {historicalTradeData.length > 0 &&
                       historicalTradeStats.length > 0 &&
                       renderBarChart(
                         historicalTradeData,
-                        "Historical Trade Distribution",
-                        "Trades",
+                        "Long-term Transaction Trends",
+                        "Number of Transactions",
                         historicalTradeStats.map((item) => item.name),
-                        `Trades over time`,
+                        `${historicalTradeData[0][0].name} - ${historicalTradeData[0][historicalTradeData[0].length - 1].name}`,
                         tradeFormatter,
-                        2
+                        3,
+                        350
                       )}
                     {historicalVolumeData.length > 0 &&
                       historicalVolumeStats.length > 0 &&
                       renderBarChart(
                         historicalVolumeData,
-                        "Historical Volume Distribution",
+                        "Historical Trading Volume Distribution",
                         "Volume",
                         historicalVolumeStats.map((item) => item.name),
-                        `Volume over time`,
+                        `${historicalVolumeData[0][0].name} - ${historicalVolumeData[0][historicalVolumeData[0].length - 1].name}`,
                         volFormatter,
-                        2
+                        3,
+                        350
                       )}
                   </div>
                   <div className="max-w-screen-3xl mx-auto p-8 bg-gray-100 rounded-lg shadow-lg">

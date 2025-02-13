@@ -230,14 +230,12 @@ const RaindexMarketData = () => {
     colorKeys,
     subtitles,
     formatter,
-    cardSpan = 1,
+    cardSpan,
     cardHeight = 250 // Allow dynamic card span (1 to 3)
   ) => {
     const bluePalette = generateColorPalette(colorKeys.length);
   
-    // Clamp cardSpan to allowed range (1 to 3)
-    const validCardSpan = Math.min(Math.max(cardSpan, 1), 3);
-    const cardSpanClass = `col-span-${validCardSpan}`;
+    const cardSpanClass = `col-span-${cardSpan}`;
   
     // Calculate Y-axis domain
     const maxVal = Math.max(
@@ -560,7 +558,8 @@ const RaindexMarketData = () => {
                         "Trades",
                         durationTradeStats.map((item) => item.name),
                         `${durationTradeData[0][0].name} - ${durationTradeData[0][durationTradeData[0].length - 1].name}`,
-                        tradeFormatter
+                        tradeFormatter,
+                        1
                       )}
                     {durationVolumeData.length > 0 &&
                       durationVolumeStats.length > 0 &&
@@ -570,7 +569,8 @@ const RaindexMarketData = () => {
                         "Volume",
                         durationVolumeStats.map((item) => item.name),
                         `${durationVolumeData[0][0].name} - ${durationVolumeData[0][durationVolumeData[0].length - 1].name}`,
-                        volFormatter
+                        volFormatter,
+                        1
                       )}
 
                     {durationTradeData.length > 0 &&
@@ -588,7 +588,8 @@ const RaindexMarketData = () => {
                         "Trades",
                         durationTradeStats.map((item) => item.name),
                         `${durationTradeData[0][0].name} - ${durationTradeData[0][durationTradeData[0].length - 1].name}`,
-                        percentageFormater
+                        percentageFormater,
+                        1
                       )}
                     {durationVolumeData.length > 0 &&
                       durationVolumeStats.length > 0 &&
@@ -605,7 +606,8 @@ const RaindexMarketData = () => {
                         "Volume",
                         durationVolumeStats.map((item) => item.name),
                         `${durationVolumeData[0][0].name} - ${durationVolumeData[0][durationVolumeData[0].length - 1].name}`,
-                        percentageFormater
+                        percentageFormater,
+                        1
                       )}
                       {historicalTradeData.length > 0 &&
                       historicalTradeStats.length > 0 &&

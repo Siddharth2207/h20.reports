@@ -4,7 +4,7 @@ import {
     Tooltip,
     ResponsiveContainer,
     Legend,
-    AreaChart, Area, CartesianGrid
+    AreaChart, Area, CartesianGrid, LineChart, Line
   } from "recharts";
   import React, { useState, useEffect } from "react";
   import { analyzeLiquidity, fetchAndFilterOrders, getTradesByTimeStamp,orderMetrics,tokenMetrics, tokenConfig, networkConfig, fetchAllPaginatedData } from "raindex-reports"
@@ -26,10 +26,12 @@ import {
 
     const [orderVolumeData, setOrderVolumeData] = useState([]);
     const [orderVolumeStats, setOrderVolumeStats] = useState([]);
-    const [vaults, setVaults] = useState([]);
 
-    const [vaultData, setVaultData] = useState([]);
-    const [vaultStats, setVaultStats] = useState([]);
+    const [orderTradeData, setOrderTradeData] = useState([]);
+    const [orderTradeStats, setOrderTradeStats] = useState([]);
+
+    const [allTradesArray, setAllTradesArray] = useState([]);
+
     
     useEffect(() => {
       if (customRange.from && customRange.to && selectedToken) {
@@ -55,21 +57,14 @@ import {
         setAllOrders(allOrders)
 
         const { tradesAccordingToTimeStamp: allTradesArray } = await analyzeLiquidity(network, token, fromTimestamp, toTimestamp);
+        setAllTradesArray(allTradesArray);
         const raindexOrderWithTrades = await getTradesByTimeStamp(network, allOrders, fromTimestamp, toTimestamp);
         prepareOrderVolumeData(allTradesArray, raindexOrderWithTrades)
+        prepareTradeCountPerOrder(raindexOrderWithTrades)
 
         const { orderMetricsData: orderMetricsDataRaindex } = await orderMetrics(filteredActiveOrders, filteredInActiveOrders, fromTimestamp, toTimestamp);
         const { stats: orderMetricsStats } = prepareStackedBarChartData(orderMetricsDataRaindex);
-        setOrderMetricsStats(orderMetricsStats)
-
-        const vaultBalanceData = await prepareVaultBalanceData();
-        setVaults(vaultBalanceData);
-
-        const {tokenVaultSummary} = await tokenMetrics(filteredActiveOrders);
-        const {vaultData, vaultStats} = prepareVaultDataAndStats(tokenVaultSummary);
-        setVaultData(vaultData)
-        setVaultStats(vaultStats)
-  
+        setOrderMetricsStats(orderMetricsStats) 
   
         setLoading(false);
       } catch (error) {
@@ -110,6 +105,10 @@ import {
     }
 
     const prepareOrderVolumeData = (allTradesArray, raindexTradesArray) => {
+
+      console.log("allTradesArray : ", JSON.stringify(allTradesArray[0]))
+      console.log("raindexTradesArray : ", JSON.stringify(raindexTradesArray[0]))
+
         function enrichAndGroupByOrderHash(raindexTradesArray, allTradesArray) {
           // Step 1: Create a mapping for allTradesArray by transactionHash for efficient lookup
           const tradeMap = allTradesArray.reduce((map, trade) => {
@@ -154,7 +153,8 @@ import {
           return Object.values(grouped);
         }
         const groupedTrades = enrichAndGroupByOrderHash(raindexTradesArray, allTradesArray);
-    
+      console.log("groupedTrades : ", JSON.stringify(groupedTrades[0]))
+        
         // Step 2: Calculate total volume and percentages
         const totalVolume = groupedTrades.reduce((sum, trade) => sum + trade.totalAmountInUsd, 0);
     
@@ -220,147 +220,79 @@ import {
         
         console.log("orderVolumeData : ", orderVolumeData)
         console.log("orderVolumeStats : ", orderVolumeStats)
-
+        
         setOrderVolumeData(orderVolumeData)
         setOrderVolumeStats(orderVolumeStats)
     };
 
-    const prepareStackedData = (vaults) => {
-        const tokenDecimals = tokenConfig[selectedToken].decimals;
-      
-        const timestampMap = {};
-      
-        vaults.forEach((vault) => {
-          const vaultId = vault.id;
-      
-          // Process historical balance changes
-          vault.balanceChanges.forEach((change) => {
-            const timestamp = new Date(change.timestamp * 1000).toISOString(); // Use ISO format
-            if (!timestampMap[timestamp]) {
-              timestampMap[timestamp] = { timestamp }; // Keep as ISO string for sorting
-            }
-            timestampMap[timestamp][vaultId] =
-              parseFloat(ethers.utils.formatUnits(change.newVaultBalance, tokenDecimals).toString());
-          });
-      
-          // Add the current balance for the vault
-          const currentTimestamp = new Date().toISOString(); // Use ISO format
-          if (!timestampMap[currentTimestamp]) {
-            timestampMap[currentTimestamp] = { timestamp: currentTimestamp };
+    const prepareTradeCountPerOrder = (raindexTradesArray) => {
+      // Step 1: Group trades by orderHash and count the number of trades per order
+      const tradeCounts = {};
+      let totalTrades = 0; // Track total number of trades
+
+      raindexTradesArray.forEach((trade) => {
+          const { orderHash } = trade;
+
+          if (!tradeCounts[orderHash]) {
+              tradeCounts[orderHash] = 0;
           }
-          timestampMap[currentTimestamp][vaultId] =
-            parseFloat(ethers.utils.formatUnits(vault.balance, tokenDecimals).toString());
-        });
-      
-        // Ensure all timestamps have an entry for every vault, fill missing with 0
-        const vaultIds = vaults.map((vault) => vault.id);
-        Object.values(timestampMap).forEach((entry) => {
-          vaultIds.forEach((vaultId) => {
-            if (!entry[vaultId]) {
-              entry[vaultId] = 0;
-            }
+          tradeCounts[orderHash] += 1; // Increment trade count for this order
+          totalTrades += 1; // Increment overall trade count
+      });
+
+      // Step 2: Convert tradeCounts object to an array for further processing
+      const groupedTrades = Object.entries(tradeCounts).map(([orderHash, tradeCount]) => ({
+          orderHash,
+          tradeCount,
+          percentage: ((tradeCount / totalTrades) * 100).toFixed(2), // Calculate percentage
+      }));
+
+      // Step 3: Sort orders by number of trades in descending order
+      const sortedEntries = groupedTrades.sort((a, b) => b.tradeCount - a.tradeCount);
+
+      // Step 4: Extract top 5 orders and aggregate the rest into "Others"
+      const tradeStats = [];
+      let othersTradeCount = 0;
+      let othersPercentage = 0;
+
+      sortedEntries.forEach((entry, index) => {
+          if (index < 5) {
+              tradeStats.push({
+                  name: abbreviateHash(entry.orderHash),
+                  value: entry.tradeCount,
+                  percentage: entry.percentage,
+              });
+          } else {
+              othersTradeCount += entry.tradeCount;
+              othersPercentage += parseFloat(entry.percentage);
+          }
+      });
+
+      // Add "Others" category if there are remaining trades
+      if (othersTradeCount > 0) {
+          tradeStats.push({
+              name: "Others",
+              value: othersTradeCount,
+              percentage: othersPercentage.toFixed(2),
           });
-        });
-      
-        // Convert timestampMap to a sorted array
-        return Object.values(timestampMap)
-          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) // Sort properly
-          .map((entry) => ({
-            ...entry,
-            timestamp: new Date(entry.timestamp).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            }), // Format for display
-          }));
-    };
+      }
 
-    const prepareVaultBalanceData = async () => {
-        const fetchVaultDetails = `
-            query VaultsQuery($tokenAddress: Bytes!) {
-              vaults(
-                where: {
-                  token_: {
-                    address: $tokenAddress
-                  }
-                }
-              ) {
-                id
-                balance
-                token {
-                  decimals
-                  address
-                  symbol
-                }
-              }
-            }
-          `;
-    
-          const vaultBalanceChanges = `
-            query VaultBalanceChanges($vaultId: Bytes!) {
-              vaultBalanceChanges(
-                where: {vault_: {id: $vaultId}}
-              ) {
-                amount
-                timestamp
-                oldVaultBalance
-                newVaultBalance
-              }
-            }
-          `;
-    
-        let vaultsData = await fetchAllPaginatedData(
-          networkConfig[tokenConfig[selectedToken].network].subgraphUrl,
-          fetchVaultDetails,
-          { tokenAddress: tokenConfig[selectedToken].address.toLowerCase() },
-          "vaults"
-        )
-    
-        for(let i = 0 ; i< vaultsData.length; i++){
-          let vault = vaultsData[i]
-          let vaultBalanceChangesData = await fetchAllPaginatedData(
-            networkConfig[tokenConfig[selectedToken].network].subgraphUrl,
-            vaultBalanceChanges,
-            { vaultId: vault.id.toString() },
-            "vaultBalanceChanges"
-          )
-          vault["balanceChanges"] = vaultBalanceChangesData.sort((a, b) => parseInt(b.timestamp, 10) - parseInt(a.timestamp, 10));
-        }
-    
-        return vaultsData
-    }
+      // Step 5: Prepare data for visualization
+      const tradeDistributionData = [
+          {
+              name: "Trades",
+              ...sortedEntries.slice(0, 5).reduce((result, entry) => {
+                  result[abbreviateHash(entry.orderHash)] = entry.tradeCount;
+                  return result;
+              }, {}),
+              Others: othersTradeCount,
+          },
+      ];
 
-    const prepareVaultDataAndStats = (tokenVaultSummary) => {
-        if (!tokenVaultSummary || tokenVaultSummary.length === 0) return { vaultData: [], vaultStats: [] };
-      
-        // Prepare vaultData
-        const vaultData = [
-          tokenVaultSummary.reduce(
-            (result, token) => {
-              result[token.symbol] = token.totalTokenBalanceUsd;
-              result.total += token.totalTokenBalanceUsd;
-              return result;
-            },
-            { name: "Balance", total: 0 }
-          ),
-        ];
-      
-        const totalBalanceUsd = tokenVaultSummary.reduce(
-          (sum, token) => sum + token.totalTokenBalanceUsd,
-          0
-        );
-      
-        const vaultStats = tokenVaultSummary.map((token) => {
-          const percentage = ((token.totalTokenBalanceUsd / totalBalanceUsd) * 100).toFixed(2);
-          return {
-            name: token.symbol,
-            value: `$${token.totalTokenBalanceUsd.toLocaleString()} - ${formatValue(token.totalTokenBalance)} ${token.symbol}`,
-            percentage: percentage,
-          };
-        });
-      
-        return { vaultData, vaultStats };
+      setOrderTradeData(tradeDistributionData);
+      setOrderTradeStats(tradeStats);  
     };
-    
+  
     const renderOrderMetrics = (
         allOrders,
         title,
@@ -501,6 +433,46 @@ import {
           </div>
         );
     };
+
+    const getUniqueOrderOwnersOverTime = (orderData) => {
+      const timeline = [];
+  
+      orderData.forEach((order) => {
+      timeline.push({
+          timestamp: order.timestampAdded,
+          owner: order.owner,
+          action: "added",
+      });
+      if (order.timestampRemoved !== "0") {
+          timeline.push({
+          timestamp: order.timestampRemoved,
+          owner: order.owner,
+          action: "removed",
+          });
+      }
+      });
+  
+      timeline.sort((a, b) => a.timestamp - b.timestamp);
+  
+      const uniqueOwners = new Set();
+      const result = [];
+  
+      timeline.forEach((event) => {
+      if (event.action === "added") {
+          uniqueOwners.add(event.owner);
+      } else if (event.action === "removed") {
+          uniqueOwners.delete(event.owner);
+      }
+  
+      result.push({
+          timestamp: event.timestamp,
+          date: new Date(event.timestamp * 1000).toISOString().split("T")[0],
+          uniqueOwnersCount: uniqueOwners.size,
+      });
+      });
+  
+      return result;
+    };
     
     const renderUniqueOwners = (
     allOrders,
@@ -519,45 +491,7 @@ import {
         }))
         .sort((a, b) => a.timestampAdded - b.timestampAdded);
     
-    const getUniqueOrderOwnersOverTime = (orderData) => {
-        const timeline = [];
     
-        orderData.forEach((order) => {
-        timeline.push({
-            timestamp: order.timestampAdded,
-            owner: order.owner,
-            action: "added",
-        });
-        if (order.timestampRemoved !== "0") {
-            timeline.push({
-            timestamp: order.timestampRemoved,
-            owner: order.owner,
-            action: "removed",
-            });
-        }
-        });
-    
-        timeline.sort((a, b) => a.timestamp - b.timestamp);
-    
-        const uniqueOwners = new Set();
-        const result = [];
-    
-        timeline.forEach((event) => {
-        if (event.action === "added") {
-            uniqueOwners.add(event.owner);
-        } else if (event.action === "removed") {
-            uniqueOwners.delete(event.owner);
-        }
-    
-        result.push({
-            timestamp: event.timestamp,
-            date: new Date(event.timestamp * 1000).toISOString().split("T")[0],
-            uniqueOwnersCount: uniqueOwners.size,
-        });
-        });
-    
-        return result;
-    };
     
     const chartData = getUniqueOrderOwnersOverTime(orderData);
     
@@ -637,10 +571,169 @@ import {
     );
     };
 
-    const renderPieChart = (title, stats, colorKeys, subtitle) => {
+
+    const getOrdersPerDay = (orders) => {
+      const ordersPerDay = {};
+    
+      orders.forEach((order) => {
+        const date = new Date(order.timestampAdded * 1000).toISOString().split("T")[0]; // Format to YYYY-MM-DD
+    
+        if (!ordersPerDay[date]) {
+          ordersPerDay[date] = 0;
+        }
+        ordersPerDay[date] += 1;
+      });
+    
+      return Object.entries(ordersPerDay).map(([date, count]) => ({
+        date,
+        ordersCount: count,
+      }));
+    };
+    
+    const OrdersPerDayChart = ( allOrders, title, subtitle, yAxisLabel) => {
+
+      const ordersPerDayData = getOrdersPerDay(allOrders);
+      
+      const formatXAxis = (date) => {
+        return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }); // Example: "Feb 12"
+      };
+    
+      return (
+        <div className="bg-white rounded-lg shadow-lg p-5 flex flex-col justify-between">
+          {/* Title */}
+          {title && <h3 className="text-lg font-semibold text-center mb-2 text-gray-800">{title}</h3>}
+
+          {/* Subtitle */}
+          {subtitle && (
+              <p className="text-sm text-center text-gray-600 mb-4">{subtitle}</p>
+          )}
+      
+          {/* Check if data exists */}
+          {ordersPerDayData && ordersPerDayData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={450}>
+              <LineChart data={ordersPerDayData} margin={{ top: 20, right: 30, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={formatXAxis}
+                  tick={{ fontSize: 12 }}
+                  minTickGap={15} // Prevents overlapping of labels
+                />
+                <YAxis
+                  label={{
+                    value: yAxisLabel,
+                    angle: -90,
+                    position: "insideLeft",
+                    dy: 10, // Adjust position for better alignment
+                    style: { fontSize: "14px" },
+                  }}
+                  tick={{ fontSize: 12 }}
+                />
+                <Tooltip />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="ordersCount"
+                  stroke="#003366" // Dark Blue Color
+                  strokeWidth={2.5}
+                  dot={{ r: 2 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="text-center text-gray-500 mt-5">No data available</div>
+          )}
+        </div>
+      );
+      
+      
+      
+    };
+
+    const getTradesPerDay = (allTradesArray) => {
+      const tradesPerDay = {};
+    
+      allTradesArray.forEach((trade) => {
+        console.log("in tardes array : ", trade)
+        const date = new Date(trade.timestamp * 1000)
+          .toISOString()
+          .split("T")[0]; // Convert timestamp to YYYY-MM-DD
+    
+        if (!tradesPerDay[date]) {
+          tradesPerDay[date] = 0;
+        }
+        tradesPerDay[date] += 1; // Increment count for that date
+      });
+    
+      // Convert to an array format
+      return Object.entries(tradesPerDay).map(([date, tradeCount]) => ({
+        date,
+        tradesCount: tradeCount,
+      }));
+    };
+    
+    const TradesPerDayChart = ( allTradesArray, title = "Trades Per Day", subtitle, yAxisLabel = "Number of Trades" ) => {
+      const tradesPerDayData = getTradesPerDay(allTradesArray);
+    
+      const formatXAxis = (date) => {
+        return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }); // Example: "Feb 12"
+      };
+    
+      return (
+        <div className="bg-white rounded-lg shadow-lg p-5 flex flex-col justify-between">
+          {/* Title */}
+          {title && <h3 className="text-lg font-semibold text-center mb-2 text-gray-800">{title}</h3>}
+    
+          {/* Subtitle */}
+          {subtitle && <p className="text-sm text-center text-gray-600 mb-4">{subtitle}</p>}
+    
+          {/* Check if data exists */}
+          {tradesPerDayData && tradesPerDayData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={450}>
+              <LineChart data={tradesPerDayData} margin={{ top: 20, right: 30, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={formatXAxis}
+                  tick={{ fontSize: 12 }}
+                  minTickGap={15} // Prevents overlapping of labels
+                />
+                <YAxis
+                  label={{
+                    value: yAxisLabel,
+                    angle: -90,
+                    position: "insideLeft",
+                    dy: 10, // Adjust position for better alignment
+                    style: { fontSize: "14px" },
+                  }}
+                  tick={{ fontSize: 12 }}
+                />
+                <Tooltip />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="tradesCount"
+                  stroke="#003366" // Dark Blue Color
+                  strokeWidth={2.5}
+                  dot={{ r: 2 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="text-center text-gray-500 mt-5">No data available</div>
+          )}
+        </div>
+      );
+    };
+  
+  
+
+    const renderPieChart = (title, stats, colorKeys, subtitle, showCurrency = true) => {
         const data = stats.map((item) => ({
           ...item,
-          value: parseFloat(item.value.replace(/[^0-9.-]+/g, "")),
+          value: parseFloat(item.value.toString().replace(/[^0-9.-]+/g, "")),
           percentage: parseFloat(item.percentage),
         }));
     
@@ -652,8 +745,7 @@ import {
           generateColorPalette(colorKeys.length)[index]
         );
     
-        // console.log("Pie Chart Data:", data); // Debugging
-        // console.log("COLORS:", COLORS); // Debugging
+
     
         return (
           <div className="bg-white rounded-lg shadow-lg p-5 flex flex-col justify-between">
@@ -661,7 +753,7 @@ import {
               {title}
             </h3>
             {subtitle && (
-              <p className="text-sm text-center text-gray-600 mb-4">{subtitle}</p>
+              <p className="text-sm text-top text-gray-600 ">{subtitle}</p>
             )}
     
             {/* Pie Chart */}
@@ -692,7 +784,7 @@ import {
                   textAnchor="middle"
                   fill={"#0A1320"}
                 >
-                  Total: ${totalVaultValue}
+                  Total: {showCurrency ? `$${totalVaultValue}` : totalVaultValue}
                 </text>
                 <Tooltip />
               </PieChart>
@@ -719,345 +811,6 @@ import {
                 </div>
               ))}
             </div>
-          </div>
-        );
-    };
-
-    const renderBalanceCharts = (vaults,title) => {
-        const tokenSymbol = tokenConfig[selectedToken].symbol;
-      
-        // Prepare chart data
-        const chartData = prepareStackedData(vaults);
-        const vaultIds = vaults.map((vault) => vault.id);
-        const colors = generateColorPalette(vaultIds.length);
-      
-        return (
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-center text-gray-800 mb-4">
-              {title}
-            </h3>
-            <ResponsiveContainer width="100%" height={350}>
-              <AreaChart
-                data={chartData}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-              >
-                <defs>
-                  {vaultIds.map((id, index) => (
-                    <linearGradient
-                      id={`colorVault${index}`}
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                      key={id}
-                    >
-                      <stop offset="5%" stopColor={colors[index]} stopOpacity={0.8} />
-                      <stop offset="95%" stopColor={colors[index]} stopOpacity={0} />
-                    </linearGradient>
-                  ))}
-                </defs>
-                <XAxis dataKey="timestamp" tick={{ fontSize: 12 }} />
-                <YAxis
-                  tickFormatter={(value) => `${value.toFixed(2)} ${tokenSymbol}`}
-                  tick={{ fontSize: 12 }}
-                />
-                <CartesianGrid strokeDasharray="3 3" />
-                <Tooltip
-                  formatter={(value, name) => [`${value.toFixed(2)} ${tokenSymbol}`, `Vault: ${name}`]}
-                />
-                {vaultIds.map((id, index) => (
-                  <Area
-                    type="monotone"
-                    dataKey={id}
-                    stackId="1"
-                    stroke={colors[index]}
-                    fillOpacity={1}
-                    fill={`url(#colorVault${index})`}
-                    key={id}
-                  />
-                ))}
-              </AreaChart>
-            </ResponsiveContainer>
-            {/* Table Below the Chart */}
-            <div className="overflow-x-auto overflow-y-auto max-h-80 mt-6">
-              <table className="table-auto w-full border-collapse border border-gray-200">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700">
-                      Vault ID
-                    </th>
-                    <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700">
-                      Token
-                    </th>
-                    <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700">
-                      Balance
-                    </th>
-                    <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700">
-                      Owner
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {vaults.map((vault, index) => (
-                    <tr
-                      key={index}
-                      className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                    >
-                      <td className="px-4 py-2 border border-gray-300 text-sm text-gray-700">
-                        {vault.id}
-                      </td>
-                      <td className="px-4 py-2 border border-gray-300 text-sm text-gray-700">
-                        {vault.token.symbol}
-                      </td>
-                      <td className="px-4 py-2 border border-gray-300 text-sm text-gray-700">
-                        {formatValue(parseFloat(ethers.utils.formatUnits(vault.balance, vault.token.decimals)))}
-                      </td>
-                      <td className="px-4 py-2 border border-gray-300 text-sm text-gray-700">
-                        {vault.owner || "N/A"} {/* Assuming vault.owner exists */}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-    };
-
-    const renderVaultPieChart = (orders, title, subtitle) => {
-        // Prepare data for vault balances
-        const vaultBalances = {};
-      
-        // Aggregate balances from inputs and outputs
-        orders.forEach((order) => {
-          [...order.inputs, ...order.outputs].forEach((entry) => {
-            const vaultId = entry.vaultId;
-            const balance = parseFloat(ethers.utils.formatEther(entry.balance,entry.token.decimals));
-      
-            if (vaultBalances[vaultId]) {
-              vaultBalances[vaultId].value += balance;
-            } else {
-              vaultBalances[vaultId] = {
-                name: `Vault ${vaultId.slice(0, 6)}...${vaultId.slice(-4)}`, // Abbreviated vault ID
-                value: balance,
-              };
-            }
-          });
-        });
-      
-        // Sort by balance in descending order
-        const sortedVaults = Object.values(vaultBalances).sort(
-          (a, b) => b.value - a.value
-        );
-      
-        // Keep top 5 vaults and group the rest into "Others"
-        const displayedVaults = sortedVaults.slice(0, 5);
-        const othersValue = sortedVaults
-          .slice(5)
-          .reduce((sum, vault) => sum + vault.value, 0);
-      
-        if (othersValue > 0) {
-          displayedVaults.push({ name: "Others", value: othersValue });
-        }
-      
-        // Calculate total value and percentages
-        const totalValue = displayedVaults.reduce((sum, vault) => sum + vault.value, 0);
-        const data = displayedVaults.map((vault) => ({
-          ...vault,
-          percentage: (vault.value / totalValue) * 100,
-        }));
-      
-        // Generate colors for the pie chart
-        const COLORS = orders.map((_, index) =>
-          generateColorPalette(orders.length)[index]
-        );
-      
-        // Render the pie chart
-        return (
-          <div className="bg-white rounded-lg shadow-lg p-5 flex flex-col justify-between">
-            {/* Chart Title */}
-            <h3 className="text-lg font-semibold text-center mb-2 text-gray-800">
-              {title}
-            </h3>
-            {subtitle && <p className="text-sm text-center text-gray-600 mb-4">{subtitle}</p>}
-      
-            {/* Pie Chart */}
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={70}
-                  outerRadius={90}
-                  fill="#8884d8"
-                  paddingAngle={5}
-                  dataKey="value"
-                  label={({ name, percentage }) =>
-                    `${name}: ${percentage.toFixed(2)}%`
-                  }
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <text
-                  x="50%"
-                  y="50%"
-                  dy={8}
-                  textAnchor="middle"
-                  fill={"#0A1320"}
-                  style={{ fontSize: "14px", fontWeight: "bold" }}
-                >
-                  Total: {totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                </text>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-      
-            {/* Legend and Bars */}
-            <div className="space-y-3 mt-4">
-              {data.map((stat, index) => (
-                <div key={index}>
-                  <div className="flex justify-between mb-1">
-                    <span className="font-bold" style={{ color: COLORS[index] }}>
-                      {stat.name}
-                    </span>
-                    <span>{stat.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="w-full h-2 bg-gray-200 rounded">
-                    <div
-                      className="h-full rounded"
-                      style={{
-                        width: `${stat.percentage}%`,
-                        backgroundColor: COLORS[index],
-                      }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-    };
-
-    const renderZeroVaultCounts = (vaults, title) => {
-  
-        const getZeroBalanceCounts = (vaults) => {
-          const zeroBalanceCounts = {};
-        
-          vaults.forEach((vault) => {
-            const balanceChanges = vault.balanceChanges;
-        
-            balanceChanges.forEach((change) => {
-              const date = new Date(change.timestamp * 1000).toISOString().split("T")[0]; // Extract YYYY-MM-DD
-        
-              if (change.newVaultBalance === "0") {
-                if (!zeroBalanceCounts[date]) {
-                  zeroBalanceCounts[date] = 0;
-                }
-                zeroBalanceCounts[date] += 1;
-              }
-            });
-          });
-        
-          // Sort the entries by date
-          return Object.entries(zeroBalanceCounts)
-            .map(([date, count]) => ({ date, count }))
-            .sort((a, b) => new Date(a.date) - new Date(b.date)); // Sort by date
-        };
-        
-      
-        const zeroBalanceData = getZeroBalanceCounts(vaults);
-      
-        return (
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-center text-gray-800 mb-4">
-              {title}
-            </h3>
-            {/* Area Chart */}
-            <div className="overflow-x-auto max-w-full">
-              <ResponsiveContainer width="100%" height={350}>
-                <AreaChart
-                  data={zeroBalanceData}
-                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient id="colorZeroVaults" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={(tick) => {
-                      const date = new Date(tick);
-                      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" }); // e.g., Jan 1
-                    }}
-                  />
-                  <YAxis
-                    tickFormatter={(value) => `${value}`}
-                    tick={{ fontSize: 12 }}
-                    label={{
-                      value: "Zero Vaults Count",
-                      angle: -90,
-                      position: "insideLeft",
-                      fontSize: 12,
-                    }}
-                  />
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <Tooltip
-                    formatter={(value) => [`${value}`, "Zero Vaults"]}
-                    labelFormatter={(label) => {
-                      const date = new Date(label);
-                      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="count"
-                    stroke="#8884d8"
-                    fillOpacity={1}
-                    fill="url(#colorZeroVaults)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-            {/* Table */}
-            <div className="overflow-x-auto overflow-y-scroll max-h-96 mt-6">
-              <table className="table-auto w-full border-collapse border border-gray-200">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700">
-                      Date
-                    </th>
-                    <th className="px-4 py-2 border border-gray-300 text-left text-sm font-semibold text-gray-700">
-                      Zero Vaults Count
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {zeroBalanceData.map((row, index) => (
-                    <tr
-                      key={index}
-                      className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                    >
-                      <td className="px-4 py-2 border border-gray-300 text-sm text-gray-700">
-                        {new Date(row.date).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </td>
-                      <td className="px-4 py-2 border border-gray-300 text-sm text-gray-700">
-                        {row.count}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-      
           </div>
         );
     };
@@ -1127,11 +880,28 @@ import {
                     </div>
   
                     <div className="grid grid-cols-3 gap-5 md:grid-cols-3 sm:grid-cols-1">
-  
+
+                    {
+                        allOrders && OrdersPerDayChart(
+                            allOrders,
+                            "Orders Added Per Day",
+                            "Unique orders added per day",
+                            "Orders Count"
+                        )
+                    }
+
+                    {
+                        allTradesArray && TradesPerDayChart(
+                          allTradesArray,
+                            "Trades Per Day",
+                            "Order trades per day",
+                            "Orders Count"
+                        )
+                    }
                     {
                         allOrders && renderOrderMetrics(
                             allOrders,
-                            "Order Metrics",
+                            "Cummulative Orders",
                             "Daily Active and Inactive Orders",
                             "Orders Count",
                             []
@@ -1146,6 +916,7 @@ import {
                             []
                         )
                     }
+                    
 
                     {
                       orderVolumeData.length > 0 &&
@@ -1158,31 +929,17 @@ import {
                       )
                     }
                     {
-                        renderBalanceCharts(vaults,`Vaults By Token`)
+                      orderTradeData.length > 0 &&
+                      orderTradeStats.length > 0 &&
+                      renderPieChart(
+                        "Trades by Order for Duration",
+                        orderTradeStats,
+                        orderTradeStats.map((item) => item.name),
+                        ``,
+                        false
+                      )
                     }
-                    {
-                        renderZeroVaultCounts(vaults,`${tokenConfig[selectedToken].symbol.toUpperCase()} Zero Vault Balances`)
-                    }
-                    {   
-                        vaultData.length > 0 &&
-                        vaultStats.length > 0 &&
-                        renderPieChart(
-                            "Vault Distribution",
-                            vaultStats,
-                            vaultStats.map((item) => item.name),
-                            ``
-                        )
-                    }
-                    {
-                        allOrders &&
-                        allOrders.length > 0 &&
-                        renderVaultPieChart(
-                            allOrders,
-                            `${tokenConfig[selectedToken.toUpperCase()].symbol} Vaults`,
-                            ``
-                        )
-                    }
-
+                    
                     </div>
                     <div className="max-w-screen-3xl mx-auto p-8 bg-gray-100 rounded-lg shadow-lg">
   

@@ -235,7 +235,11 @@ const RaindexMarketData = () => {
   ) => {
     const bluePalette = generateColorPalette(colorKeys.length);
   
-    const cardSpanClass = `col-span-${cardSpan}`;
+    const cardSpanClass =
+    cardSpan === 3 ? "col-span-3" :
+    cardSpan === 2 ? "col-span-2" :
+    "col-span-1";
+
   
     // Calculate Y-axis domain
     const maxVal = Math.max(

@@ -35,7 +35,7 @@ const Header = () => (
               to="/market"
               className="text-indigo-600 font-semibold text-lg no-underline"
             >
-              Market Data
+              Market Analysis
             </Link>
           </li>
           <li>

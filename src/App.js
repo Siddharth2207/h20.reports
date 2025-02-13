@@ -40,10 +40,10 @@ const Header = () => (
           </li>
           <li>
             <Link
-              to="/vaults"
+              to="/order-analysis"
               className="text-indigo-600 font-semibold text-lg no-underline"
             >
-              Raindex Vaults
+              Order Analysis
             </Link>
           </li>
           <li>
@@ -81,7 +81,7 @@ const App = () => {
             element={<RaindexMarketData />}
           />
           <Route
-            path="/vaults"
+            path="/order-analysis"
             element={<RaindexVaults />}
           />
           <Route

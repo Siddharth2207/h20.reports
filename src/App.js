@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import RaindexMarketData from "./components/RaindexMarketData";
-import RaindexVaults from "./components/RaindexVaults";
+import RaindexOrderAnalysis from "./components/RaindexOrderAnalysis";
 import RaindexVisualization from "./components/RaindexVisualization";
 import RaindexOrderList from "./components/RaindexOrderList";
 import RaindexActivityList from "./components/RaindexActivityList";
@@ -82,7 +82,7 @@ const App = () => {
           />
           <Route
             path="/order-analysis"
-            element={<RaindexVaults />}
+            element={<RaindexOrderAnalysis />}
           />
           <Route
             path="/orderlist"

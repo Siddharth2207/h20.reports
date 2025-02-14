@@ -11,10 +11,9 @@ import {
   import TopBarWithFilters from "./TopBarWithFilters";
   import { PieChart, Pie, Cell } from 'recharts';
   import {generateColorPalette } from './RaindexMarketData'
-  import { ethers } from "ethers";
 
   
-  const RaindexVaults = () => {
+  const RaindexOrderAnalysis = () => {
     const [initialized, setInitialized] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -987,4 +986,4 @@ import {
     );
   };
   
-  export default RaindexVaults;
+  export default RaindexOrderAnalysis;

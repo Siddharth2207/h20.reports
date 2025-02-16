@@ -17,7 +17,7 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@v2
 
       - name: Install Dependencies
-        run:  nix develop -c install-deps
+        run:  nix develop -c yarn install
 
       - name: Lint
-        run:  nix develop -c npm run lint
+        run:  nix develop -c yarn lint

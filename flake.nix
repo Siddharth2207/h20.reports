@@ -27,7 +27,6 @@
         ];
         nativeBuildInputs = [
           rainix.node-build-inputs.${system}
-          pkgs.yarn
         ];
       };
     }

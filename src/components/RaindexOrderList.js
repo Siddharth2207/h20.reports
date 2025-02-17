@@ -2406,7 +2406,7 @@ const RaindexOrderList = () => {
             >
               <option value="" disabled>
                 Select a token
-              </option>
+              </option>{' '}
               {/* Placeholder option */}
               {Object.keys(tokenConfig).map((token, index) => (
                 <option key={index} value={token}>
@@ -2416,7 +2416,7 @@ const RaindexOrderList = () => {
             </select>
           </div>
 
-          {/* Active/Inactive Filter (Properly Aligned Now) */}
+          {/* Active/Inactive Filter */}
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">Filter:</span>
             <select
@@ -2430,64 +2430,64 @@ const RaindexOrderList = () => {
             </select>
           </div>
         </div>
-
-        {initialized ? (
-          loading ? (
-            <div className="flex h-screen flex-col items-center justify-center bg-gray-100">
-              <div className="spinner h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-indigo-500"></div>
-              <p>Loading...</p>
-            </div>
-          ) : (
-            <div className="max-w-screen-3xl mx-auto rounded-lg bg-gray-100 p-8 shadow-lg">
-              <div className="border-b border-gray-300 bg-gray-100 p-6">
-                <h1 className="text-2xl font-bold text-gray-800">
-                  {selectedToken.toUpperCase()} Order List
-                </h1>
-              </div>
-
-              {/* Full-Width Table */}
-              <div className="overflow-hidden rounded-lg bg-white shadow-lg">
-                {filteredOrders && <OrdersTable orders={filteredOrders} />}
-              </div>
-
-              <div className="mt-8 rounded-lg bg-gray-100 p-6 text-base text-gray-700">
-                <h3 className="mb-4 text-left text-lg font-semibold">Data Sources</h3>
-                <ul className="list-inside list-disc space-y-2">
-                  <li>
-                    <a
-                      href="https://docs.envio.dev/docs/HyperSync/overview"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      HyperSync Documentation
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href={
-                        networkConfig[tokenConfig[selectedToken.toUpperCase()]?.network].subgraphUrl
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      Raindex Subgraph API
-                    </a>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          )
-        ) : (
-          <div className="flex flex-col items-center justify-center rounded-lg bg-gray-100 p-6 text-center shadow-md">
-            <p className="text-gray-700">
-              Please select a <span className="font-medium text-blue-900">token</span> and filter
-              orders.
-            </p>
-          </div>
-        )}
       </div>
+
+      {initialized ? (
+        loading ? (
+          <div className="flex h-screen flex-col items-center justify-center bg-gray-100">
+            <div className="spinner h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-indigo-500"></div>
+            <p>Loading...</p>
+          </div>
+        ) : (
+          <div className="max-w-screen-3xl mx-auto rounded-lg bg-gray-100 p-8 shadow-lg">
+            <div className="border-b border-gray-300 bg-gray-100 p-6">
+              <h1 className="text-2xl font-bold text-gray-800">
+                {selectedToken.toUpperCase()} Order List
+              </h1>
+            </div>
+
+            {/* Full-Width Table */}
+            <div className="overflow-hidden rounded-lg bg-white shadow-lg">
+              {filteredOrders && <OrdersTable orders={filteredOrders} />}
+            </div>
+
+            <div className="mt-8 rounded-lg bg-gray-100 p-6 text-base text-gray-700">
+              <h3 className="mb-4 text-left text-lg font-semibold">Data Sources</h3>
+              <ul className="list-inside list-disc space-y-2">
+                <li>
+                  <a
+                    href="https://docs.envio.dev/docs/HyperSync/overview"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    HyperSync Documentation
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={
+                      networkConfig[tokenConfig[selectedToken.toUpperCase()]?.network].subgraphUrl
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    Raindex Subgraph API
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        )
+      ) : (
+        <div className="flex flex-col items-center justify-center rounded-lg bg-gray-100 p-6 text-center shadow-md">
+          <p className="text-gray-700">
+            Please select a <span className="font-medium text-blue-900">token</span> and filter
+            orders.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

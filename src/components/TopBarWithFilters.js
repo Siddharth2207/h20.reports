@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
+import React, { useState } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 const TopBarWithFilters = ({ onApplyFilters, tokenOptions }) => {
   const [customRange, setCustomRange] = useState({ from: null, to: null });
@@ -15,7 +15,7 @@ const TopBarWithFilters = ({ onApplyFilters, tokenOptions }) => {
   };
 
   return (
-    <div className="bg-gray-800 text-white p-4 flex items-center justify-between rounded-lg shadow-lg">
+    <div className="flex items-center justify-between rounded-lg bg-gray-800 p-4 text-white shadow-lg">
       {/* Left Side: Header */}
       <div className="flex items-center gap-4">
         <span className="text-sm font-semibold uppercase tracking-wide">Market Reports</span>
@@ -28,24 +28,24 @@ const TopBarWithFilters = ({ onApplyFilters, tokenOptions }) => {
           <span className="text-sm font-medium">From:</span>
           <DatePicker
             selected={customRange.from}
-            onChange={(date) => handleDateChange("from", date)}
+            onChange={(date) => handleDateChange('from', date)}
             showTimeSelect
             timeFormat="HH:mm:ss"
             timeIntervals={1}
             dateFormat="yyyy-MM-dd HH:mm:ss"
-            className="bg-gray-700 text-white p-2 rounded text-sm"
+            className="rounded bg-gray-700 p-2 text-sm text-white"
           />
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">To:</span>
           <DatePicker
             selected={customRange.to}
-            onChange={(date) => handleDateChange("to", date)}
+            onChange={(date) => handleDateChange('to', date)}
             showTimeSelect
             timeFormat="HH:mm:ss"
             timeIntervals={1}
             dateFormat="yyyy-MM-dd HH:mm:ss"
-            className="bg-gray-700 text-white p-2 rounded text-sm"
+            className="rounded bg-gray-700 p-2 text-sm text-white"
           />
         </div>
 
@@ -55,7 +55,7 @@ const TopBarWithFilters = ({ onApplyFilters, tokenOptions }) => {
           <select
             value={selectedToken}
             onChange={(e) => setSelectedToken(e.target.value)}
-            className="bg-gray-700 text-white p-2 rounded text-sm"
+            className="rounded bg-gray-700 p-2 text-sm text-white"
           >
             {tokenOptions.map((token, index) => (
               <option key={index} value={token}>
@@ -68,7 +68,7 @@ const TopBarWithFilters = ({ onApplyFilters, tokenOptions }) => {
         {/* Apply Filters Button */}
         <button
           onClick={handleApplyFilters}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded text-sm"
+          className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
         >
           Apply Filters
         </button>

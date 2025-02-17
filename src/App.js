@@ -1,68 +1,54 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import RaindexMarketData from "./components/RaindexMarketData";
-import RaindexOrderAnalysis from "./components/RaindexOrderAnalysis";
-import RaindexVisualization from "./components/RaindexVisualization";
-import RaindexOrderList from "./components/RaindexOrderList";
-import RaindexActivityList from "./components/RaindexActivityList";
-
+import RaindexMarketData from './components/RaindexMarketData';
+import RaindexOrderAnalysis from './components/RaindexOrderAnalysis';
+import RaindexVisualization from './components/RaindexVisualization';
+import RaindexOrderList from './components/RaindexOrderList';
+import RaindexActivityList from './components/RaindexActivityList';
 
 import './tailwind.css';
 
 import logoIcon from './assets/h20-logo.png';
 
 const Header = () => (
-  <header className="p-4 bg-white border-b border-gray-300">
+  <header className="border-b border-gray-300 bg-white p-4">
     <div className="flex items-center gap-5">
       {/* Logo Section */}
       <div className="flex items-center gap-2">
-        <img src={logoIcon} alt="Logo" className="w-10 h-10" />
+        <img src={logoIcon} alt="Logo" className="h-10 w-10" />
       </div>
 
       {/* Navigation Links */}
       <nav>
-        <ul className="flex gap-5 list-none m-0 p-0">
+        <ul className="m-0 flex list-none gap-5 p-0">
           <li>
-            <Link
-              to="/"
-              className="text-indigo-600 font-semibold text-lg no-underline"
-            >
+            <Link to="/" className="text-lg font-semibold text-indigo-600 no-underline">
               OrderBook
             </Link>
           </li>
           <li>
-            <Link
-              to="/market"
-              className="text-indigo-600 font-semibold text-lg no-underline"
-            >
+            <Link to="/market" className="text-lg font-semibold text-indigo-600 no-underline">
               Market Analysis
             </Link>
           </li>
           <li>
             <Link
               to="/order-analysis"
-              className="text-indigo-600 font-semibold text-lg no-underline"
+              className="text-lg font-semibold text-indigo-600 no-underline"
             >
               Order Analysis
             </Link>
           </li>
           <li>
-          <Link
-              to="/orderlist"
-              className="text-indigo-600 font-semibold text-lg no-underline"
-            >
+            <Link to="/orderlist" className="text-lg font-semibold text-indigo-600 no-underline">
               Order List
             </Link>
           </li>
           <li>
-          <Link
-              to="/activitylist"
-              className="text-indigo-600 font-semibold text-lg no-underline"
-            >
+            <Link to="/activitylist" className="text-lg font-semibold text-indigo-600 no-underline">
               Activity List
             </Link>
           </li>
-
         </ul>
       </nav>
     </div>
@@ -76,29 +62,14 @@ const App = () => {
       <main className="p-5">
         <Routes>
           <Route path="/" element={<RaindexVisualization />} />
-          <Route
-            path="/market"
-            element={<RaindexMarketData />}
-          />
-          <Route
-            path="/order-analysis"
-            element={<RaindexOrderAnalysis />}
-          />
-          <Route
-            path="/orderlist"
-            element={<RaindexOrderList />}
-          />
-          <Route
-            path="/activitylist"
-            element={<RaindexActivityList />}
-          />
+          <Route path="/market" element={<RaindexMarketData />} />
+          <Route path="/order-analysis" element={<RaindexOrderAnalysis />} />
+          <Route path="/orderlist" element={<RaindexOrderList />} />
+          <Route path="/activitylist" element={<RaindexActivityList />} />
         </Routes>
-        
       </main>
     </Router>
   );
 };
 
 export default App;
-
-

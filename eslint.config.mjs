@@ -20,7 +20,14 @@ export default [
     // files to include linting
     files: ['src/**/*.{js,mjs,cjs,jsx}'],
   },
-  {languageOptions: { globals: globals.browser }},
+  {
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        process: 'readonly',
+      } 
+    }
+  },
   pluginJs.configs.recommended,
   pluginReact.configs.flat.recommended,
 	prettierConf,

@@ -1,6 +1,6 @@
 # Raindex OrderBook Depth Chart
-## dev
-To start, install deps by following command:
+## Developers Guide
+To start, install deps by following command, you need nix pkg manager instaleed on your machine:
 ```sh
 nix develop -c yarn install
 ```
@@ -13,7 +13,7 @@ and then run:
 yarn install
 ```
 ---
-To run the website:
+To run the server locally:
 ```sh
 nix develop -c yarn start
 ```

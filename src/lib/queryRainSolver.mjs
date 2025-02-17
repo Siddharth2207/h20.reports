@@ -104,7 +104,6 @@ export async function queryRainSolver(chainId, orderHash, endTime = Date.now(), 
           'Content-Type': 'application/json',
           Authorization: `Bearer 4ca0a329-0fc0-4ba4-b898-adc7f2a99671`,
         },
-        mode: 'no-cors',
       });
       console.log(await response.clone().json());
       const result = await response.json();

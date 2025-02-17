@@ -184,14 +184,15 @@ export async function queryRainSolver(chainId, orderHash, endTime = Date.now(), 
 }
 
 /**
- * Type of an rain solver data
+ * Type of a rain solver log data for an order
  * @typedef RainSolverLog
  * @type {object}
  * @property {string} spanId - Span ID of this log
  * @property {string} status - Status msg of the log
  * @property {string} pair - Toke pair
  * @property {number} timestamp
- * @property {RainSolverTrade | RainSolverAttempt} [attemptDetails] - Details fo this log
+ * @property {RainSolverTrade | RainSolverAttempt} [attemptDetails] - Details of clearing
+ * attempt if order was quoted successfuly, either a success trade or failed attempt
  */
 
 /**
@@ -223,7 +224,7 @@ export async function queryRainSolver(chainId, orderHash, endTime = Date.now(), 
  * @typedef RainSolverFullAttempt
  * @type {object}
  * @property {string} marketPrice - Market price for full maxOutput
- * @property {string} error - Reason for failed attempt
+ * @property {string} error - Reason for this failed attempt
  * @property {string} route - Attempt swap route
  */
 
@@ -233,6 +234,6 @@ export async function queryRainSolver(chainId, orderHash, endTime = Date.now(), 
  * @type {object}
  * @property {string} amountIn - The amount for partial attempt
  * @property {string} marketPrice - Market price for amountIn
- * @property {string} error - Reason for failed attempt
+ * @property {string} error - Reason for this failed attempt
  * @property {string} route - Attempt swap route
  */

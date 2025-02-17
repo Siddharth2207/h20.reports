@@ -30,7 +30,7 @@ export default [
   },
   pluginJs.configs.recommended,
   pluginReact.configs.flat.recommended,
-	prettierConf,
+  prettierConf,
   {
     plugins: {
       react: pluginReact,
@@ -44,7 +44,7 @@ export default [
     // custom lint rules
     rules: {
       'no-console': 'off',
-			'no-trailing-spaces': 'error',
+      'no-trailing-spaces': 'error',
       'no-unused-vars': [
         'error',
         { varsIgnorePattern: '^_', argsIgnorePattern: '^_' }

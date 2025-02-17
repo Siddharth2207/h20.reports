@@ -1,7 +1,7 @@
 /** @readonly HyperDX query API endpoint */
 const hdxQueryUrl = 'https://api.hyperdx.io/api/v1/charts/series';
 
-/** @enum HDX services names per chain */
+/** @enum {Record<number, string>} RainSolver HyperDX service names per chain */
 const HDXServices = {
   1: 'digiocean-eth-bot',
   14: 'digiocean-flare-bot',

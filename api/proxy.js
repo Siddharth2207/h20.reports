@@ -8,7 +8,7 @@ const hdxQueryUrl = 'https://api.hyperdx.io/api/v1/charts/series';
 export default async function handler(req, res) {
   try {
     const response = await fetch(hdxQueryUrl, {
-      method: 'POST',
+      method: req.method,
       headers: req.headers,
       body: JSON.stringify(req.body),
     });

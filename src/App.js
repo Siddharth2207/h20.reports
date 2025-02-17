@@ -9,10 +9,7 @@ import RaindexActivityList from './components/RaindexActivityList';
 import './tailwind.css';
 
 import logoIcon from './assets/h20-logo.png';
-import { queryRainSolver } from './lib/queryRainSolver.mjs';
-queryRainSolver(14, '')
-  .then((v) => console.log(v))
-  .catch((v) => console.log(v));
+
 const Header = () => (
   <header className="border-b border-gray-300 bg-white p-4">
     <div className="flex items-center gap-5">

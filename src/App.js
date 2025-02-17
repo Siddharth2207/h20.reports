@@ -5,6 +5,8 @@ import RaindexOrderAnalysis from "./components/RaindexOrderAnalysis";
 import RaindexVisualization from "./components/RaindexVisualization";
 import RaindexOrderList from "./components/RaindexOrderList";
 import RaindexActivityList from "./components/RaindexActivityList";
+import RaindexVaults from "./components/RaindexVaults";
+
 
 
 import './tailwind.css';
@@ -48,12 +50,21 @@ const Header = () => (
           </li>
           <li>
           <Link
+              to="/vault-analysis"
+              className="text-indigo-600 font-semibold text-lg no-underline"
+            >
+              Vault Analysis
+            </Link>
+          </li>
+          <li>
+          <Link
               to="/orderlist"
               className="text-indigo-600 font-semibold text-lg no-underline"
             >
               Order List
             </Link>
           </li>
+          
           <li>
           <Link
               to="/activitylist"
@@ -83,6 +94,10 @@ const App = () => {
           <Route
             path="/order-analysis"
             element={<RaindexOrderAnalysis />}
+          />
+          <Route
+            path="/vault-analysis"
+            element={<RaindexVaults />}
           />
           <Route
             path="/orderlist"

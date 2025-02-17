@@ -44,7 +44,7 @@ export default [
     },
     // custom lint rules
     rules: {
-      'no-console': 'error',
+      'no-console': 'off',
       'no-trailing-spaces': 'error',
       "react/prop-types": "off",
       'no-unused-vars': [

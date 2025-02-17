@@ -6,8 +6,8 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  unit-test:
-    name: unit tests
+  lint:
+    name: lint check
     runs-on: ubuntu-latest
 
     steps:

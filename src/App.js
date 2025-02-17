@@ -9,10 +9,33 @@ import RaindexActivityList from './components/RaindexActivityList';
 import './tailwind.css';
 
 import logoIcon from './assets/h20-logo.png';
-import { queryRainSolver } from './lib/queryRainSolver.mjs';
-queryRainSolver(14, '')
-  .then((v) => console.log(v))
-  .catch((v) => console.log(v));
+// import { queryRainSolver } from './lib/queryRainSolver.mjs';
+// queryRainSolver(14, '')
+//   .then((v) => console.log(v))
+//   .catch((v) => console.log(v));
+
+fetch('/api/proxy', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    series: [
+      {
+        dataSource: 'events',
+        aggFn: 'count',
+        where: 'order_',
+        groupBy: ['details.quote', 'body', 'details.routeProcessor.full.marketPrice', 'span_id'],
+      },
+    ],
+    endTime: 1739665057000,
+    startTime: 1739663257000,
+    granularity: '1 minute',
+    seriesReturnType: 'column',
+  }),
+})
+  .then((res) => res.json())
+  .then((data) => console.log('Response:', data))
+  .catch((err) => console.error('Error:', err));
+
 const Header = () => (
   <header className="border-b border-gray-300 bg-white p-4">
     <div className="flex items-center gap-5">

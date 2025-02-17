@@ -52,9 +52,9 @@ export default [
       'prettier/prettier': [
         'error',
         {
-          printWidth: 100,
           tabWidth: 2,
           useTabs: false,
+          printWidth: 100,
           singleQuote: true,
           plugins: ['prettier-plugin-react', 'prettier-plugin-tailwindcss'],
         }

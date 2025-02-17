@@ -1,5 +1,5 @@
-/** @readonly HyperDX query API endpoint */
-const hdxQueryUrl = 'https://api.hyperdx.io/api/v1/charts/series';
+// /** @readonly HyperDX query API endpoint */
+// const hdxQueryUrl = 'https://api.hyperdx.io/api/v1/charts/series';
 
 /** @enum {Record<number, string>} RainSolver HyperDX service names per chain */
 const HDXServices = {
@@ -97,7 +97,7 @@ export async function queryRainSolver(chainId, orderHash, endTime = Date.now(), 
   // concurrently fetch solver logs for each request format
   const responses = await Promise.allSettled(
     requestDetails.map(async (requestBody) => {
-      const response = await fetch(hdxQueryUrl, {
+      const response = await fetch('api/proxy', {
         method: 'POST',
         body: JSON.stringify(requestBody),
         headers: {

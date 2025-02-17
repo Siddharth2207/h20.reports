@@ -45,6 +45,7 @@ export default [
     rules: {
       'no-console': 'off',
       'no-trailing-spaces': 'error',
+      "react/prop-types": "off",
       'no-unused-vars': [
         'error',
         { varsIgnorePattern: '^_', argsIgnorePattern: '^_' }

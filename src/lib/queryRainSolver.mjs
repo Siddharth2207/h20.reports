@@ -17,7 +17,7 @@ const HDXServices = {
  * @param {string} orderHash - The order hash
  * @param {number} endTime - The end timestamp in millis, default is "now" if omitted
  * @param {number} duration - Timespan of logs in minutes before endTime, default is 5 if omitted
- * @returns {RainSolverLog[]}
+ * @returns {Promise<RainSolverLog[]>}
  */
 export async function queryRainSolver(chainId, orderHash, endTime = Date.now(), duration = 5) {
   if (!HDXServices[chainId]) {
@@ -102,9 +102,11 @@ export async function queryRainSolver(chainId, orderHash, endTime = Date.now(), 
         body: JSON.stringify(requestBody),
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.REACT_APP_HYPERDX_API_KEY}`,
+          Authorization: `Bearer 4ca0a329-0fc0-4ba4-b898-adc7f2a99671`,
         },
+        mode: 'no-cors',
       });
+      console.log(await response.clone().json());
       const result = await response.json();
       if ('data' in result) return result.data;
       else return Promise.reject(result);

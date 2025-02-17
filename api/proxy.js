@@ -1,5 +1,6 @@
 /** @readonly HyperDX query API endpoint */
 const hdxQueryUrl = 'https://api.hyperdx.io/api/v1/charts/series';
+
 /**
  * @param {Request} req
  * @param {Response} res
@@ -7,9 +8,9 @@ const hdxQueryUrl = 'https://api.hyperdx.io/api/v1/charts/series';
 export default async function handler(req, res) {
   try {
     const response = await fetch(hdxQueryUrl, {
-      method: req.method,
+      method: 'POST',
       headers: req.headers,
-      body: req.body,
+      body: JSON.stringify(req.body),
     });
 
     const data = await response.json();

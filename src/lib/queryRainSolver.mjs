@@ -15,7 +15,7 @@ const HDXServices = {
  * Query rain solver logs for the given order hash in past number of minutes.
  * @param {number} chainId - The chain id of the order
  * @param {string} orderHash - The order hash
- * @param {number} endTime - The end timestamp, default is "now" if omitted
+ * @param {number} endTime - The end timestamp in millis, default is "now" if omitted
  * @param {number} duration - Timespan of logs in minutes before endTime, default is 5 if omitted
  * @returns {RainSolverLog[]}
  */

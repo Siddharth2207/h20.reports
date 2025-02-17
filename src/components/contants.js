@@ -59,11 +59,17 @@ export const baseTokenConfig = {
     network: 'polygon',
     address: '0x84342e932797fc62814189f01f0fb05f52519708',
   },
-  MNW: {
+  MNW_POLYGON: {
     symbol: 'MNW',
     decimals: 18,
     network: 'polygon',
     address: '0x3c59798620e5fec0ae6df1a19c6454094572ab92',
+  },
+  MNW_ETHEREUM: {
+    symbol: 'MNW',
+    decimals: 18,
+    network: 'mainnet',
+    address: '0xd3e4ba569045546d09cf021ecc5dfe42b1d7f6e4',
   },
   WPOL: {
     symbol: 'WPOL',

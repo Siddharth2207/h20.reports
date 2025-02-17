@@ -402,7 +402,7 @@ const OrdersTable = ({ orders }) => {
 
       fetchData();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line
   }, [activeTab]);
 
   const handleSortByVaultBalance = (orders, sortType) => {
@@ -2304,7 +2304,7 @@ const RaindexOrderList = () => {
       // Ensures no request is made when there's no token selected
       fetchAndSetData(selectedToken, filterActiveOrders);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line
   }, [selectedToken, filterActiveOrders]);
 
   // Function to filter orders based on active/inactive state

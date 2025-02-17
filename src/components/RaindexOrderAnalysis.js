@@ -49,7 +49,7 @@ const RaindexOrderAnalysis = () => {
         Math.floor(new Date(customRange.to).getTime() / 1000) - currentGracePeriod;
       fetchAndSetData(selectedToken, fromTimestamp, toTimestamp);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line
   }, [customRange, selectedToken]);
 
   function abbreviateHash(hash) {

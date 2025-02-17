@@ -53,7 +53,7 @@ const RaindexVisualization = () => {
         console.log('Polling cleaned up...');
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line
   }, [networkEndpoint, baseToken, quoteToken]);
 
   async function fetchOrders() {

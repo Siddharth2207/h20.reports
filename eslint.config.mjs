@@ -10,6 +10,7 @@ export default [
     // files to ignore linting
     ignores: [
       'dist/',
+      'build/',
       'src/assets/',
       'node_modules/',
       'tailwind.config.js',

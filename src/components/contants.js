@@ -11,18 +11,10 @@ export const QuoteConfig = TakeOrderConfigV3;
 export const config = {
   networks: {
     flare: { rpc: 'https://rpc.ankr.com/flare', chainId: 14, currency: 'FLR' },
-    base: { rpc: 'https://mainnet.base.org', chainId: 8453, currency: 'ETH' },
+    base: { rpc: 'https://rpc.ankr.com/base', chainId: 8453, currency: 'ETH' },
     sepolia: { rpc: 'https://1rpc.io/sepolia', chainId: 11155111, currency: 'ETH' },
-    polygon: {
-      rpc: 'https://polygon-mainnet.g.alchemy.com/v2/zv_qezhqKEtY-ZRKRUbDHD2VqlPYASBK',
-      chainId: 137,
-      currency: 'POL',
-    },
-    arbitrum: {
-      rpc: 'https://arb-mainnet.g.alchemy.com/v2/zv_qezhqKEtY-ZRKRUbDHD2VqlPYASBK',
-      chainId: 42161,
-      currency: 'ETH',
-    },
+    polygon: { rpc: 'https://rpc.ankr.com/polygon', chainId: 137, currency: 'POL' },
+    arbitrum: { rpc: 'https://rpc.ankr.com/arbitrum', chainId: 42161, currency: 'ETH' },
     bsc: { rpc: 'https://rpc.ankr.com/bsc', chainId: 56, currency: 'BNB' },
     mainnet: { rpc: 'https://rpc.ankr.com/eth', chainId: 1, currency: 'ETH' },
   },

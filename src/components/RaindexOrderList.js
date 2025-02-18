@@ -9,6 +9,7 @@ import {
   vaultWithdrawalQuery,
   getTokenPriceUsd,
 } from 'raindex-reports';
+import { queryRainSolver } from '../lib/queryRainSolver.mjs';
 import { ethers } from 'ethers';
 
 const now = Math.floor(Date.now() / 1000);
@@ -378,6 +379,9 @@ const OrdersTable = ({ orders }) => {
   const [activeTab, setActiveTab] = useState('trades');
   const [depositsData, setDepositsData] = useState(null);
   const [loadingDeposits, setLoadingDeposits] = useState(false);
+
+  const [orderSolverLogs, setOrderSolverLogs] = useState(null);
+  const [laodingSolver, setLoadingSolver] = useState(false);
   const transformedSortedOrders = useMemo(() => transformedOrders(orders), [orders]);
 
   useEffect(() => {
@@ -404,6 +408,68 @@ const OrdersTable = ({ orders }) => {
     }
     // eslint-disable-next-line
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'solver' && !orderSolverLogs) {
+      setLoadingSolver(true);
+
+      const fetchData = async () => {
+        try {
+          const data = await fetchSolverLogs(sortedOrders);
+          setOrderSolverLogs(data);
+        } catch (error) {
+          console.error('Error fetching solver logs:', error);
+        } finally {
+          setLoadingSolver(false);
+        }
+      };
+
+      fetchData();
+    }
+    // eslint-disable-next-line
+  }, [activeTab]);
+
+  const fetchSolverLogs = async (orders) => {
+    orders = orders.filter(i => i.active)
+    const filteredData = []; 
+
+    for(let i = 0; i < orders.length; i++){
+      let order = orders[i]
+      const orderLogs = await queryRainSolver(
+        networkConfig[order.network].chainId,
+        order.orderHash,
+      );
+      const seenPairs = new Set();
+    
+      for (const orderLog of orderLogs) {
+        if (!seenPairs.has(orderLog.pair)) {
+            seenPairs.add(orderLog.pair);
+            if (orderLog.attemptDetails !== undefined) {
+              filteredData.push({
+                network: order.network,
+                orderHash: order.orderHash,
+                ioRatio: orderLog.attemptDetails.quote.ratio,
+                maxOutput: orderLog.attemptDetails.quote.maxOutput,
+                marketPrice: orderLog.attemptDetails.fullAttempt.marketPrice,
+                pair: orderLog.pair,
+                orderStatus: orderLog.status,
+                orderReason: orderLog.attemptDetails.fullAttempt.error
+              });
+            }
+        }
+      }
+    }
+
+    const groupedData = {};
+    for (const item of filteredData) {
+        const { orderHash, pair, ioRatio,maxOutput, marketPrice, network, orderStatus, orderReason } = item;
+        if (!groupedData[orderHash]) {
+            groupedData[orderHash] = { orderHash, network, pairs: [] };
+        }
+        groupedData[orderHash].pairs.push({ pair, ioRatio,maxOutput, marketPrice, orderStatus, orderReason });
+    }
+    return Object.values(groupedData);
+  }
 
   const handleSortByVaultBalance = (orders, sortType) => {
     let sorted = [...orders];
@@ -1056,7 +1122,7 @@ const OrdersTable = ({ orders }) => {
   return (
     <div className="w-full overflow-x-auto rounded-lg bg-white shadow-lg">
       <div className="flex rounded-t-lg border-b border-gray-300 bg-gray-100">
-        {['trades', 'balance', 'vault', 'p&l'].map((tab) => (
+        {['trades', 'balance', 'vault', 'p&l', 'solver'].map((tab) => (
           <button
             key={tab}
             className={`px-6 py-3 text-sm font-medium transition-all ${
@@ -1072,7 +1138,9 @@ const OrdersTable = ({ orders }) => {
                 ? 'Balance Changes'
                 : tab === 'vault'
                   ? 'Deposits & Withdrawals'
-                  : 'Profit & Loss'}
+                  : tab === 'p&l'
+                    ? 'Profit & Loss'
+                    : 'Solver Logs'}
           </button>
         ))}
       </div>
@@ -1080,11 +1148,11 @@ const OrdersTable = ({ orders }) => {
       <table className="w-full table-auto border-collapse border border-gray-200">
         <thead className="bg-gray-50 text-sm font-semibold text-gray-800">
           <tr className="border-b border-gray-300">
-            <th className="px-4 py-3 text-left">Network</th>
+            <th className="px-4 py-3 text-center">Network</th>
 
             {activeTab === 'trades' && (
               <>
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1094,7 +1162,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1124,7 +1192,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1134,7 +1202,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1144,7 +1212,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1154,7 +1222,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1168,7 +1236,7 @@ const OrdersTable = ({ orders }) => {
 
             {activeTab === 'balance' && (
               <>
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1178,7 +1246,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1198,7 +1266,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1208,7 +1276,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1218,7 +1286,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1228,7 +1296,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1238,7 +1306,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1252,7 +1320,7 @@ const OrdersTable = ({ orders }) => {
 
             {activeTab === 'vault' && (
               <>
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1262,7 +1330,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1282,7 +1350,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1292,7 +1360,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                {/* <th className="px-4 py-3 text-left">
+                {/* <th className="px-4 py-3 text-center">
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
@@ -1305,7 +1373,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
@@ -1318,7 +1386,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th> */}
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1328,7 +1396,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                {/* <th className="px-4 py-3 text-left">
+                {/* <th className="px-4 py-3 text-center">
                   <select
                     className="bg-gray-100 text-gray-700 p-1 rounded focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(
@@ -1341,7 +1409,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th> */}
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1351,7 +1419,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1360,7 +1428,7 @@ const OrdersTable = ({ orders }) => {
                     <option value="differentialDesc">Absolute Change ↓</option>
                   </select>
                 </th>
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1374,7 +1442,7 @@ const OrdersTable = ({ orders }) => {
 
             {activeTab === 'p&l' && (
               <>
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1384,7 +1452,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1394,7 +1462,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1413,7 +1481,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1423,7 +1491,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1433,7 +1501,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1443,7 +1511,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1453,7 +1521,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1462,7 +1530,7 @@ const OrdersTable = ({ orders }) => {
                     <option value="orderRoiDesc">ROI % ↓</option>
                   </select>
                 </th>
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1472,7 +1540,7 @@ const OrdersTable = ({ orders }) => {
                   </select>
                 </th>
 
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <select
                     className="rounded bg-gray-100 p-1 text-gray-700 focus:outline-none"
                     onChange={(e) => handleSortByVaultBalance(sortedOrders, e.target.value)}
@@ -1484,7 +1552,12 @@ const OrdersTable = ({ orders }) => {
               </>
             )}
 
-            <th className="px-4 py-3 text-left">Hash</th>
+            {activeTab === 'solver' && (
+              <>
+                <th className="px-4 py-3 text-center">Hash</th>
+                <th className="px-4 py-2 border border-gray-300 text-center">Pairs</th>
+              </>
+            )}
           </tr>
         </thead>
 
@@ -2282,6 +2355,71 @@ const OrdersTable = ({ orders }) => {
                   </td>
                 </tr>
               ))}
+            </>
+          )}
+          {activeTab === 'solver' && (
+            <>
+             {
+              laodingSolver ? (
+                <tr>
+                  <td colSpan="100%" className="py-6 text-center">
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-indigo-600"></div>
+                      <p className="mt-3 text-lg font-medium text-gray-600">Loading...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                <>
+                  {orderSolverLogs?.map((order, index) => (
+                    <tr key={index} className="border-t border-gray-300 text-gray-700">
+                      <td className="px-4 py-3 text-center text-sm">{order.network}</td>
+                      <td className="px-4 py-2 text-center text-blue-500 underline">
+                        <a
+                          href={getOrderLink(order.orderHash, order.network)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {`${order.orderHash.slice(0, 6)}...${order.orderHash.slice(-4)}`}
+                        </a>
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm">
+                        <table className="w-full text-left border border-gray-200 shadow-sm rounded-lg table-fixed">
+                          <thead className="bg-gray-100 text-gray-700 uppercase text-sm">
+                            <tr>
+                              <th className="px-4 py-3 w-32">Pair</th> 
+                              <th className="px-4 py-3 w-40">ioRatio</th> 
+                              <th className="px-4 py-3 w-40">Market Price</th> 
+                              <th className="px-4 py-3 w-48">Order Output Amount</th> 
+                              <th className="px-4 py-3 w-40">Order Status</th> 
+                              <th className="px-4 py-3 w-96">Order Reason</th> 
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200 bg-white">
+                            {order.pairs?.map((pairItem, pairIndex) => (
+                              <tr key={pairIndex} className="hover:bg-gray-50 transition">
+                                <td className="px-4 py-3 truncate">{pairItem.pair}</td>
+                                <td className="px-4 py-3 truncate">{pairItem.ioRatio}</td>
+                                <td className="px-4 py-3 truncate">{pairItem.marketPrice}</td>
+                                <td className="px-4 py-3 truncate">{pairItem.maxOutput}</td>
+                                <td 
+                                  className={`px-4 py-3 font-semibold ${
+                                    pairItem.orderStatus === "success" ? "text-green-500" : "text-red-500"
+                                  }`}
+                                >
+                                  {pairItem.orderStatus}
+                                </td>
+                                <td className="px-4 py-3 text-gray-500 truncate">{pairItem.orderReason}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  ))}
+                </>
+              )
+             }
             </>
           )}
         </tbody>

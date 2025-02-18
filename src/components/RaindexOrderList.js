@@ -430,46 +430,62 @@ const OrdersTable = ({ orders }) => {
   }, [activeTab]);
 
   const fetchSolverLogs = async (orders) => {
-    orders = orders.filter(i => i.active)
-    const filteredData = []; 
+    orders = orders.filter((i) => i.active);
+    const filteredData = [];
 
-    for(let i = 0; i < orders.length; i++){
-      let order = orders[i]
+    for (let i = 0; i < orders.length; i++) {
+      let order = orders[i];
       const orderLogs = await queryRainSolver(
         networkConfig[order.network].chainId,
         order.orderHash,
       );
       const seenPairs = new Set();
-    
+
       for (const orderLog of orderLogs) {
         if (!seenPairs.has(orderLog.pair)) {
-            seenPairs.add(orderLog.pair);
-            if (orderLog.attemptDetails !== undefined) {
-              filteredData.push({
-                network: order.network,
-                orderHash: order.orderHash,
-                ioRatio: orderLog.attemptDetails.quote.ratio,
-                maxOutput: orderLog.attemptDetails.quote.maxOutput,
-                marketPrice: orderLog.attemptDetails.fullAttempt.marketPrice,
-                pair: orderLog.pair,
-                orderStatus: orderLog.status,
-                orderReason: orderLog.attemptDetails.fullAttempt.error
-              });
-            }
+          seenPairs.add(orderLog.pair);
+          if (orderLog.attemptDetails !== undefined) {
+            filteredData.push({
+              network: order.network,
+              orderHash: order.orderHash,
+              ioRatio: orderLog.attemptDetails.quote.ratio,
+              maxOutput: orderLog.attemptDetails.quote.maxOutput,
+              marketPrice: orderLog.attemptDetails.fullAttempt.marketPrice,
+              pair: orderLog.pair,
+              orderStatus: orderLog.status,
+              orderReason: orderLog.attemptDetails.fullAttempt.error,
+            });
+          }
         }
       }
     }
 
     const groupedData = {};
     for (const item of filteredData) {
-        const { orderHash, pair, ioRatio,maxOutput, marketPrice, network, orderStatus, orderReason } = item;
-        if (!groupedData[orderHash]) {
-            groupedData[orderHash] = { orderHash, network, pairs: [] };
-        }
-        groupedData[orderHash].pairs.push({ pair, ioRatio,maxOutput, marketPrice, orderStatus, orderReason });
+      const {
+        orderHash,
+        pair,
+        ioRatio,
+        maxOutput,
+        marketPrice,
+        network,
+        orderStatus,
+        orderReason,
+      } = item;
+      if (!groupedData[orderHash]) {
+        groupedData[orderHash] = { orderHash, network, pairs: [] };
+      }
+      groupedData[orderHash].pairs.push({
+        pair,
+        ioRatio,
+        maxOutput,
+        marketPrice,
+        orderStatus,
+        orderReason,
+      });
     }
     return Object.values(groupedData);
-  }
+  };
 
   const handleSortByVaultBalance = (orders, sortType) => {
     let sorted = [...orders];
@@ -1555,7 +1571,7 @@ const OrdersTable = ({ orders }) => {
             {activeTab === 'solver' && (
               <>
                 <th className="px-4 py-3 text-center">Hash</th>
-                <th className="px-4 py-2 border border-gray-300 text-center">Pairs</th>
+                <th className="border border-gray-300 px-4 py-2 text-center">Pairs</th>
               </>
             )}
           </tr>
@@ -2359,8 +2375,7 @@ const OrdersTable = ({ orders }) => {
           )}
           {activeTab === 'solver' && (
             <>
-             {
-              laodingSolver ? (
+              {laodingSolver ? (
                 <tr>
                   <td colSpan="100%" className="py-6 text-center">
                     <div className="flex flex-col items-center justify-center">
@@ -2384,32 +2399,36 @@ const OrdersTable = ({ orders }) => {
                         </a>
                       </td>
                       <td className="px-4 py-3 text-center text-sm">
-                        <table className="w-full text-left border border-gray-200 shadow-sm rounded-lg table-fixed">
-                          <thead className="bg-gray-100 text-gray-700 uppercase text-sm">
+                        <table className="w-full table-fixed rounded-lg border border-gray-200 text-left shadow-sm">
+                          <thead className="bg-gray-100 text-sm uppercase text-gray-700">
                             <tr>
-                              <th className="px-4 py-3 w-32">Pair</th> 
-                              <th className="px-4 py-3 w-40">ioRatio</th> 
-                              <th className="px-4 py-3 w-40">Market Price</th> 
-                              <th className="px-4 py-3 w-48">Order Output Amount</th> 
-                              <th className="px-4 py-3 w-40">Order Status</th> 
-                              <th className="px-4 py-3 w-96">Order Reason</th> 
+                              <th className="w-32 px-4 py-3">Pair</th>
+                              <th className="w-40 px-4 py-3">ioRatio</th>
+                              <th className="w-40 px-4 py-3">Market Price</th>
+                              <th className="w-48 px-4 py-3">Order Output Amount</th>
+                              <th className="w-40 px-4 py-3">Order Status</th>
+                              <th className="w-96 px-4 py-3">Order Reason</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200 bg-white">
                             {order.pairs?.map((pairItem, pairIndex) => (
-                              <tr key={pairIndex} className="hover:bg-gray-50 transition">
-                                <td className="px-4 py-3 truncate">{pairItem.pair}</td>
-                                <td className="px-4 py-3 truncate">{pairItem.ioRatio}</td>
-                                <td className="px-4 py-3 truncate">{pairItem.marketPrice}</td>
-                                <td className="px-4 py-3 truncate">{pairItem.maxOutput}</td>
-                                <td 
+                              <tr key={pairIndex} className="transition hover:bg-gray-50">
+                                <td className="truncate px-4 py-3">{pairItem.pair}</td>
+                                <td className="truncate px-4 py-3">{pairItem.ioRatio}</td>
+                                <td className="truncate px-4 py-3">{pairItem.marketPrice}</td>
+                                <td className="truncate px-4 py-3">{pairItem.maxOutput}</td>
+                                <td
                                   className={`px-4 py-3 font-semibold ${
-                                    pairItem.orderStatus === "success" ? "text-green-500" : "text-red-500"
+                                    pairItem.orderStatus === 'success'
+                                      ? 'text-green-500'
+                                      : 'text-red-500'
                                   }`}
                                 >
                                   {pairItem.orderStatus}
                                 </td>
-                                <td className="px-4 py-3 text-gray-500 truncate">{pairItem.orderReason}</td>
+                                <td className="truncate px-4 py-3 text-gray-500">
+                                  {pairItem.orderReason}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -2418,8 +2437,7 @@ const OrdersTable = ({ orders }) => {
                     </tr>
                   ))}
                 </>
-              )
-             }
+              )}
             </>
           )}
         </tbody>

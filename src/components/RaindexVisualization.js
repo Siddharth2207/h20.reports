@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { getSwap } from 'sushi';
 import { ethers } from 'ethers';
 import { OrderV3, config, baseTokenConfig, quoteTokenConfig, orderQuery } from './contants';
 import h20Logo from '../assets/h20-logo.png';

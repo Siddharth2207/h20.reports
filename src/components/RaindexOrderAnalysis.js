@@ -39,7 +39,7 @@ const RaindexOrderAnalysis = () => {
   const [orderTradeData, setOrderTradeData] = useState([]);
   const [orderTradeStats, setOrderTradeStats] = useState([]);
 
-  const [allTradesArray, setAllTradesArray] = useState([]);
+  const [raindexTradesArray, setRaindexTradesArray] = useState([]);
 
   useEffect(() => {
     if (customRange.from && customRange.to && selectedToken) {
@@ -72,13 +72,13 @@ const RaindexOrderAnalysis = () => {
         fromTimestamp,
         toTimestamp,
       );
-      setAllTradesArray(allTradesArray);
       const raindexOrderWithTrades = await getTradesByTimeStamp(
         network,
         allOrders,
         fromTimestamp,
         toTimestamp,
       );
+      setRaindexTradesArray(raindexOrderWithTrades);
       prepareOrderVolumeData(allTradesArray, raindexOrderWithTrades);
       prepareTradeCountPerOrder(raindexOrderWithTrades);
 
@@ -130,9 +130,6 @@ const RaindexOrderAnalysis = () => {
   }
 
   const prepareOrderVolumeData = (allTradesArray, raindexTradesArray) => {
-    console.log('allTradesArray : ', JSON.stringify(allTradesArray[0]));
-    console.log('raindexTradesArray : ', JSON.stringify(raindexTradesArray[0]));
-
     function enrichAndGroupByOrderHash(raindexTradesArray, allTradesArray) {
       // Step 1: Create a mapping for allTradesArray by transactionHash for efficient lookup
       const tradeMap = allTradesArray.reduce((map, trade) => {
@@ -177,7 +174,6 @@ const RaindexOrderAnalysis = () => {
       return Object.values(grouped);
     }
     const groupedTrades = enrichAndGroupByOrderHash(raindexTradesArray, allTradesArray);
-    console.log('groupedTrades : ', JSON.stringify(groupedTrades[0]));
 
     // Step 2: Calculate total volume and percentages
     const totalVolume = groupedTrades.reduce((sum, trade) => sum + trade.totalAmountInUsd, 0);
@@ -200,7 +196,7 @@ const RaindexOrderAnalysis = () => {
 
       if (index < 5 && volume > 0) {
         orderVolumeStats.push({
-          name: abbreviateHash(entry.orderHash),
+          name: entry.orderHash,
           value: `$${volume.toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
@@ -215,7 +211,7 @@ const RaindexOrderAnalysis = () => {
     // Add "Others" category
     if (othersVolume > 0) {
       orderVolumeStats.push({
-        name: 'Others',
+        name: '',
         value: `$${othersVolume.toLocaleString(undefined, {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
@@ -241,9 +237,6 @@ const RaindexOrderAnalysis = () => {
         total: totalVolume,
       },
     ];
-
-    console.log('orderVolumeData : ', orderVolumeData);
-    console.log('orderVolumeStats : ', orderVolumeStats);
 
     setOrderVolumeData(orderVolumeData);
     setOrderVolumeStats(orderVolumeStats);
@@ -282,7 +275,7 @@ const RaindexOrderAnalysis = () => {
     sortedEntries.forEach((entry, index) => {
       if (index < 5) {
         tradeStats.push({
-          name: abbreviateHash(entry.orderHash),
+          name: entry.orderHash,
           value: entry.tradeCount,
           percentage: entry.percentage,
         });
@@ -295,7 +288,7 @@ const RaindexOrderAnalysis = () => {
     // Add "Others" category if there are remaining trades
     if (othersTradeCount > 0) {
       tradeStats.push({
-        name: 'Others',
+        name: '',
         value: othersTradeCount,
         percentage: othersPercentage.toFixed(2),
       });
@@ -420,14 +413,14 @@ const RaindexOrderAnalysis = () => {
             <Legend />
             <Area
               type="monotone"
-              dataKey="active"
+              dataKey="inactive"
               stackId="1"
               stroke={colors[0]}
               fill={colors[0]}
             />
             <Area
               type="monotone"
-              dataKey="inactive"
+              dataKey="active"
               stackId="1"
               stroke={colors[1]}
               fill={colors[1]}
@@ -452,44 +445,49 @@ const RaindexOrderAnalysis = () => {
     );
   };
 
-  const getUniqueOrderOwnersOverTime = (orderData) => {
-    const timeline = [];
+  const getUniqueOrderOwnersPerDay = (orderData) => {
+    const fromTimestamp = Math.floor(new Date(customRange.from).getTime() / 1000);
+    const toTimestamp = Math.floor(new Date(customRange.to).getTime() / 1000);
 
+    const dailyOwners = {};
+
+    // Initialize the dailyOwners dictionary for every day in the range
+    for (
+      let d = new Date(customRange.from);
+      d <= new Date(customRange.to);
+      d.setDate(d.getDate() + 1)
+    ) {
+      const dateStr = new Date(d).toISOString().split('T')[0];
+      dailyOwners[dateStr] = new Set();
+    }
+
+    // Process orders
     orderData.forEach((order) => {
-      timeline.push({
-        timestamp: order.timestampAdded,
-        owner: order.owner,
-        action: 'added',
-      });
-      if (order.timestampRemoved !== '0') {
-        timeline.push({
-          timestamp: order.timestampRemoved,
-          owner: order.owner,
-          action: 'removed',
-        });
+      const orderAddedDate = new Date(order.timestampAdded * 1000).toISOString().split('T')[0];
+      const orderRemovedDate =
+        order.timestampRemoved !== '0'
+          ? new Date(order.timestampRemoved * 1000).toISOString().split('T')[0]
+          : null;
+
+      // Ensure order falls within the custom range
+      if (order.timestampAdded >= fromTimestamp && order.timestampAdded <= toTimestamp) {
+        for (
+          let d = new Date(orderAddedDate);
+          d <= new Date(customRange.to);
+          d.setDate(d.getDate() + 1)
+        ) {
+          const dateStr = new Date(d).toISOString().split('T')[0];
+          if (dateStr > orderRemovedDate) break; // Stop counting after removal date
+          dailyOwners[dateStr]?.add(order.owner);
+        }
       }
     });
 
-    timeline.sort((a, b) => a.timestamp - b.timestamp);
-
-    const uniqueOwners = new Set();
-    const result = [];
-
-    timeline.forEach((event) => {
-      if (event.action === 'added') {
-        uniqueOwners.add(event.owner);
-      } else if (event.action === 'removed') {
-        uniqueOwners.delete(event.owner);
-      }
-
-      result.push({
-        timestamp: event.timestamp,
-        date: new Date(event.timestamp * 1000).toISOString().split('T')[0],
-        uniqueOwnersCount: uniqueOwners.size,
-      });
-    });
-
-    return result;
+    // Convert dailyOwners to the desired output format
+    return Object.entries(dailyOwners).map(([date, owners]) => ({
+      date,
+      uniqueOwnersCount: owners.size,
+    }));
   };
 
   const renderUniqueOwners = (allOrders, title, subtitle, yAxisLabel = 'Unique Owners') => {
@@ -503,7 +501,7 @@ const RaindexOrderAnalysis = () => {
       }))
       .sort((a, b) => a.timestampAdded - b.timestampAdded);
 
-    const chartData = getUniqueOrderOwnersOverTime(orderData);
+    const chartData = getUniqueOrderOwnersPerDay(orderData);
 
     const colors = generateColorPalette(2);
 
@@ -569,16 +567,30 @@ const RaindexOrderAnalysis = () => {
   };
 
   const getOrdersPerDay = (orders) => {
+    const fromTimestamp = Math.floor(new Date(customRange.from).getTime() / 1000);
+    const toTimestamp = Math.floor(new Date(customRange.to).getTime() / 1000);
+
     const ordersPerDay = {};
 
-    orders.forEach((order) => {
-      const date = new Date(order.timestampAdded * 1000).toISOString().split('T')[0]; // Format to YYYY-MM-DD
+    // Initialize dates with 0 orders for the entire range
+    for (
+      let d = new Date(customRange.from);
+      d <= new Date(customRange.to);
+      d.setDate(d.getDate() + 1)
+    ) {
+      const dateStr = new Date(d).toISOString().split('T')[0];
+      ordersPerDay[dateStr] = 0;
+    }
 
-      if (!ordersPerDay[date]) {
-        ordersPerDay[date] = 0;
-      }
-      ordersPerDay[date] += 1;
-    });
+    // Filter orders within the date range and count them
+    orders
+      .filter(
+        (order) => order.timestampAdded >= fromTimestamp && order.timestampAdded <= toTimestamp,
+      )
+      .forEach((order) => {
+        const date = new Date(order.timestampAdded * 1000).toISOString().split('T')[0];
+        ordersPerDay[date] += 1;
+      });
 
     return Object.entries(ordersPerDay).map(([date, count]) => ({
       date,
@@ -641,20 +653,30 @@ const RaindexOrderAnalysis = () => {
     );
   };
 
-  const getTradesPerDay = (allTradesArray) => {
+  const getTradesPerDay = (raindexTrades) => {
+    const fromTimestamp = Math.floor(new Date(customRange.from).getTime() / 1000);
+    const toTimestamp = Math.floor(new Date(customRange.to).getTime() / 1000);
+
     const tradesPerDay = {};
 
-    allTradesArray.forEach((trade) => {
-      console.log('in tardes array : ', trade);
-      const date = new Date(trade.timestamp * 1000).toISOString().split('T')[0]; // Convert timestamp to YYYY-MM-DD
+    // Initialize dates with 0 trades for the entire range
+    for (
+      let d = new Date(customRange.from);
+      d <= new Date(customRange.to);
+      d.setDate(d.getDate() + 1)
+    ) {
+      const dateStr = new Date(d).toISOString().split('T')[0];
+      tradesPerDay[dateStr] = 0;
+    }
 
-      if (!tradesPerDay[date]) {
-        tradesPerDay[date] = 0;
-      }
-      tradesPerDay[date] += 1; // Increment count for that date
-    });
+    // Filter trades within the date range and count them
+    raindexTrades
+      .filter((trade) => trade.timestamp >= fromTimestamp && trade.timestamp <= toTimestamp)
+      .forEach((trade) => {
+        const date = new Date(trade.timestamp * 1000).toISOString().split('T')[0];
+        tradesPerDay[date] += 1;
+      });
 
-    // Convert to an array format
     return Object.entries(tradesPerDay).map(([date, tradeCount]) => ({
       date,
       tradesCount: tradeCount,
@@ -662,12 +684,12 @@ const RaindexOrderAnalysis = () => {
   };
 
   const TradesPerDayChart = (
-    allTradesArray,
+    raindexTrades,
     title = 'Trades Per Day',
     subtitle,
     yAxisLabel = 'Number of Trades',
   ) => {
-    const tradesPerDayData = getTradesPerDay(allTradesArray);
+    const tradesPerDayData = getTradesPerDay(raindexTrades);
 
     const formatXAxis = (date) => {
       return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); // Example: "Feb 12"
@@ -767,7 +789,17 @@ const RaindexOrderAnalysis = () => {
             <div key={index}>
               <div className="mb-1 flex justify-between">
                 <span className="font-bold" style={{ color: COLORS[index] }}>
-                  {stat.name}
+                  {stat.name === '' ? (
+                    <text>Others</text>
+                  ) : (
+                    <a
+                      href={`https://raindex.finance/my-strategies/${stat.name}-${tokenConfig[selectedToken]?.network}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {abbreviateHash(stat.name)}
+                    </a>
+                  )}
                 </span>
                 <span>{stat.value}</span>
               </div>
@@ -796,6 +828,13 @@ const RaindexOrderAnalysis = () => {
       return `${(value / 1).toFixed(2)}`;
     }
   };
+
+  const formatDate = (date) =>
+    new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
 
   const handleFiltersApply = (range, token) => {
     setCustomRange(range);
@@ -851,24 +890,26 @@ const RaindexOrderAnalysis = () => {
                   allOrders,
                   'Orders Added Per Day',
                   'Unique orders added per day',
-                  'Orders Count',
+                  'Transaction Count',
                 )}
 
-              {allTradesArray &&
+              {raindexTradesArray &&
                 TradesPerDayChart(
-                  allTradesArray,
+                  raindexTradesArray,
                   'Trades Per Day',
                   'Order trades per day',
-                  'Orders Count',
+                  'Transaction Count',
                 )}
+
               {allOrders &&
                 renderOrderMetrics(
                   allOrders,
                   'Cummulative Orders',
-                  'Daily Active and Inactive Orders',
+                  'Cummulative Daily Active and Inactive Orders',
                   'Orders Count',
                   [],
                 )}
+
               {allOrders &&
                 renderUniqueOwners(
                   allOrders,
@@ -877,22 +918,22 @@ const RaindexOrderAnalysis = () => {
                   'Orders Count',
                 )}
 
-              {orderVolumeData.length > 0 &&
-                orderVolumeStats.length > 0 &&
-                renderPieChart(
-                  'Volume by Order for Duration',
-                  orderVolumeStats,
-                  orderVolumeStats.map((item) => item.name),
-                  ``,
-                )}
               {orderTradeData.length > 0 &&
                 orderTradeStats.length > 0 &&
                 renderPieChart(
-                  'Trades by Order for Duration',
+                  `Trades by Order for [${formatDate(customRange.from)} - ${formatDate(customRange.to)}]`,
                   orderTradeStats,
                   orderTradeStats.map((item) => item.name),
                   ``,
                   false,
+                )}
+              {orderVolumeData.length > 0 &&
+                orderVolumeStats.length > 0 &&
+                renderPieChart(
+                  `Volume by Order for [${formatDate(customRange.from)} - ${formatDate(customRange.to)}]`,
+                  orderVolumeStats,
+                  orderVolumeStats.map((item) => item.name),
+                  ``,
                 )}
             </div>
             <div className="max-w-screen-3xl mx-auto rounded-lg bg-gray-100 p-8 shadow-lg"></div>

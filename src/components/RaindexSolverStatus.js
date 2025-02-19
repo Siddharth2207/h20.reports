@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchAndFilterOrders, tokenConfig, networkConfig } from 'raindex-reports';
 import { queryRainSolverByOrder } from '../lib/queryRainSolver.mjs';
-import {formatTimestamp} from './RaindexOrderList'
+import { formatTimestamp } from './RaindexOrderList';
 
 const OrdersTable = ({ orderSolverLogs }) => {
   const getOrderLink = (orderHash, orderNetwork) =>
@@ -50,7 +50,7 @@ const OrdersTable = ({ orderSolverLogs }) => {
                     {order.pairs?.map((pairItem, pairIndex) => (
                       <tr key={pairIndex} className="align-top transition hover:bg-gray-50">
                         <td className="w-[120px] break-words px-4 py-2 align-top">
-                          {formatTimestamp(pairItem.timestamp/1000)}
+                          {formatTimestamp(pairItem.timestamp / 1000)}
                         </td>
                         <td className="w-[120px] break-words px-4 py-2 align-top">
                           {pairItem.pair}
@@ -132,25 +132,21 @@ const RaindexSolverStatus = () => {
         networkConfig[tokenConfig[selectedToken].network].chainId,
         order.orderHash,
         Date.now(),
-        10
-      ); 
+        10,
+      );
       for (const orderLog of orderLogs) {
         const hasDetails = orderLog.attemptDetails !== undefined;
         filteredData.push({
           network: tokenConfig[selectedToken].network,
           orderHash: order.orderHash,
           pair: orderLog.pair,
-          ioRatio: hasDetails ? orderLog.attemptDetails.quote.ratio : "0",
-          maxOutput: hasDetails ? orderLog.attemptDetails.quote.maxOutput : "0",
-          marketPrice: hasDetails
-            ? orderLog.attemptDetails.fullAttempt.marketPrice
-            : "0",
-          orderStatus: hasDetails
-            ? orderLog.status
-            : "zero max output",
+          ioRatio: hasDetails ? orderLog.attemptDetails.quote.ratio : '0',
+          maxOutput: hasDetails ? orderLog.attemptDetails.quote.maxOutput : '0',
+          marketPrice: hasDetails ? orderLog.attemptDetails.fullAttempt.marketPrice : '0',
+          orderStatus: hasDetails ? orderLog.status : 'zero max output',
           orderReason: hasDetails
             ? orderLog.attemptDetails.fullAttempt.error
-            : "No attempt details",
+            : 'No attempt details',
           timestamp: orderLog.timestamp,
         });
       }

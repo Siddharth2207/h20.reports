@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  fetchAndFilterOrders,
-  tokenConfig,
-  networkConfig
+  fetchAndFilterOrders, tokenConfig, networkConfig
 } from 'raindex-reports';
 import { queryRainSolverByOrder } from '../lib/queryRainSolver.mjs';
 
@@ -110,7 +108,7 @@ const RaindexSolverStatus = () => {
 
   const fetchAndSetData = async (selectedToken) => {
     const network = tokenConfig[selectedToken]?.network;
-    const { filteredActiveOrders } = await fetchAndFilterOrders(
+    const { filteredActiveOrders, filteredInActiveOrders } = await fetchAndFilterOrders(
         selectedToken,
         network,
     );
@@ -181,14 +179,9 @@ const RaindexSolverStatus = () => {
 
   return (
     <div className="min-h-screen p-6">
-      {/* Header Section */}
       <div className="flex items-center justify-between rounded-lg bg-gray-800 p-4 text-white shadow-lg">
-        {/* Left Section: Title */}
         <h1 className="text-lg font-semibold uppercase tracking-wide">Solver Logs</h1>
-        
-        {/* Right Section: Apply Filters Button and Token Selector */}
         <div className="flex items-center space-x-4">
-          {/* Token Filter */}
           <div className="flex items-center space-x-2">
             <span className="text-sm font-medium">Token:</span>
             <select
@@ -207,7 +200,6 @@ const RaindexSolverStatus = () => {
         </div>
       </div>
 
-      {/* Main Content Area */}
       <div className="max-w-screen-3xl mx-auto mt-6 rounded-lg bg-gray-100 p-8 shadow-lg">
         {
           loadingSolverLogs ? (
@@ -216,13 +208,9 @@ const RaindexSolverStatus = () => {
               <p className="mt-3 text-lg font-medium text-gray-600">Loading...</p>
             </div>
           ) : (
-            <>
-              {solverLogs && <OrdersTable orderSolverLogs={solverLogs} />}
-            </>
+            <>{solverLogs && <OrdersTable orderSolverLogs={solverLogs} />}</>
           )
         }
-        
-        {/* Data Sources */}
         <div className="mt-8 rounded-lg bg-gray-100 p-6 text-base text-gray-700">
           <h3 className="mb-4 text-left text-lg font-semibold">Data Sources</h3>
           <ul className="list-inside list-disc space-y-2">

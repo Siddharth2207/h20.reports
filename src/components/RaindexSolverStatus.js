@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchAndFilterOrders, tokenConfig, networkConfig } from 'raindex-reports';
 import { queryRainSolverByOrder } from '../lib/queryRainSolver.mjs';
+import {formatTimestamp} from './RaindexOrderList'
 
 const OrdersTable = ({ orderSolverLogs }) => {
   const getOrderLink = (orderHash, orderNetwork) =>
@@ -35,9 +36,11 @@ const OrdersTable = ({ orderSolverLogs }) => {
                 <table className="min-w-full table-auto rounded-lg border border-gray-200 text-left shadow-sm">
                   <thead className="bg-gray-100 text-sm uppercase text-gray-700">
                     <tr>
+                      <th className="w-[120px] break-words px-4 py-2">Timestamp</th>
                       <th className="w-[120px] break-words px-4 py-2">Pair</th>
                       <th className="w-[140px] break-words px-4 py-2">ioRatio</th>
                       <th className="w-[140px] break-words px-4 py-2">Market Price</th>
+                      <th className="w-[140px] break-words px-4 py-2">Price Distance</th>
                       <th className="w-[160px] break-words px-4 py-2">Order Output Amount</th>
                       <th className="w-[140px] break-words px-4 py-2">Order Status</th>
                       <th className="w-[200px] break-words px-4 py-2">Order Reason</th>
@@ -47,6 +50,9 @@ const OrdersTable = ({ orderSolverLogs }) => {
                     {order.pairs?.map((pairItem, pairIndex) => (
                       <tr key={pairIndex} className="align-top transition hover:bg-gray-50">
                         <td className="w-[120px] break-words px-4 py-2 align-top">
+                          {formatTimestamp(pairItem.timestamp/1000)}
+                        </td>
+                        <td className="w-[120px] break-words px-4 py-2 align-top">
                           {pairItem.pair}
                         </td>
                         <td className="w-[140px] break-words px-4 py-2 align-top">
@@ -54,6 +60,9 @@ const OrdersTable = ({ orderSolverLogs }) => {
                         </td>
                         <td className="w-[140px] break-words px-4 py-2 align-top">
                           {pairItem.marketPrice}
+                        </td>
+                        <td className="w-[140px] break-words px-4 py-2 align-top">
+                          {pairItem.ioRatio - pairItem.marketPrice}
                         </td>
                         <td className="w-[160px] break-words px-4 py-2 align-top">
                           {pairItem.maxOutput}
@@ -117,34 +126,35 @@ const RaindexSolverStatus = () => {
   const fetchSolverLogs = async (orders) => {
     orders = orders.filter((i) => i.active);
     const filteredData = [];
-
     for (let i = 0; i < orders.length; i++) {
       let order = orders[i];
       const orderLogs = await queryRainSolverByOrder(
         networkConfig[tokenConfig[selectedToken].network].chainId,
         order.orderHash,
-      );
-      const seenPairs = new Set();
-
+        Date.now(),
+        10
+      ); 
       for (const orderLog of orderLogs) {
-        if (!seenPairs.has(orderLog.pair)) {
-          seenPairs.add(orderLog.pair);
-          if (orderLog.attemptDetails !== undefined) {
-            filteredData.push({
-              network: tokenConfig[selectedToken].network,
-              orderHash: order.orderHash,
-              ioRatio: orderLog.attemptDetails.quote.ratio,
-              maxOutput: orderLog.attemptDetails.quote.maxOutput,
-              marketPrice: orderLog.attemptDetails.fullAttempt.marketPrice,
-              pair: orderLog.pair,
-              orderStatus: orderLog.status,
-              orderReason: orderLog.attemptDetails.fullAttempt.error,
-            });
-          }
-        }
+        const hasDetails = orderLog.attemptDetails !== undefined;
+        filteredData.push({
+          network: tokenConfig[selectedToken].network,
+          orderHash: order.orderHash,
+          pair: orderLog.pair,
+          ioRatio: hasDetails ? orderLog.attemptDetails.quote.ratio : "0",
+          maxOutput: hasDetails ? orderLog.attemptDetails.quote.maxOutput : "0",
+          marketPrice: hasDetails
+            ? orderLog.attemptDetails.fullAttempt.marketPrice
+            : "0",
+          orderStatus: hasDetails
+            ? orderLog.status
+            : "zero max output",
+          orderReason: hasDetails
+            ? orderLog.attemptDetails.fullAttempt.error
+            : "No attempt details",
+          timestamp: orderLog.timestamp,
+        });
       }
     }
-
     const groupedData = {};
     for (const item of filteredData) {
       const {
@@ -156,6 +166,7 @@ const RaindexSolverStatus = () => {
         network,
         orderStatus,
         orderReason,
+        timestamp,
       } = item;
       if (!groupedData[orderHash]) {
         groupedData[orderHash] = { orderHash, network, pairs: [] };
@@ -167,6 +178,7 @@ const RaindexSolverStatus = () => {
         marketPrice,
         orderStatus,
         orderReason,
+        timestamp,
       });
     }
     return Object.values(groupedData);

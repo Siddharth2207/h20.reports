@@ -3,7 +3,7 @@ import axios from 'axios';
 import { ethers } from 'ethers';
 import { OrderV3, config, baseTokenConfig, quoteTokenConfig, orderQuery } from './contants';
 import h20Logo from '../assets/h20-logo.png';
-import { queryRainSolver } from '../lib/queryRainSolver.mjs';
+import { queryRainSolverByOrder } from '../lib/queryRainSolver.mjs';
 import { networkConfig } from 'raindex-reports';
 
 const RaindexVisualization = () => {
@@ -112,7 +112,7 @@ const RaindexVisualization = () => {
             ? `${baseTokenConfig[baseToken]?.symbol}/${quoteTokenConfig[quoteToken]?.symbol}`
             : `${quoteTokenConfig[quoteToken]?.symbol}/${baseTokenConfig[baseToken]?.symbol}`;
 
-          const orderLogs = await queryRainSolver(
+          const orderLogs = await queryRainSolverByOrder(
             networkConfig[network].chainId,
             currentOrder.orderHash,
           );

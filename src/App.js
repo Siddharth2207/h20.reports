@@ -5,6 +5,7 @@ import RaindexOrderAnalysis from './components/RaindexOrderAnalysis';
 import RaindexVisualization from './components/RaindexVisualization';
 import RaindexOrderList from './components/RaindexOrderList';
 import RaindexActivityList from './components/RaindexActivityList';
+import RaindexSolverStatus from './components/RaindexSolverStatus';
 
 import './tailwind.css';
 
@@ -49,6 +50,11 @@ const Header = () => (
               Activity List
             </Link>
           </li>
+          <li>
+            <Link to="/solverlogs" className="text-lg font-semibold text-indigo-600 no-underline">
+              Solver Logs
+            </Link>
+          </li>
         </ul>
       </nav>
     </div>
@@ -66,6 +72,7 @@ const App = () => {
           <Route path="/order-analysis" element={<RaindexOrderAnalysis />} />
           <Route path="/orderlist" element={<RaindexOrderList />} />
           <Route path="/activitylist" element={<RaindexActivityList />} />
+          <Route path="/solverlogs" element={<RaindexSolverStatus />} />
         </Routes>
       </main>
     </Router>

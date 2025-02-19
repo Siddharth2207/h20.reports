@@ -9,7 +9,7 @@ import {
   vaultWithdrawalQuery,
   getTokenPriceUsd,
 } from 'raindex-reports';
-import { queryRainSolver } from '../lib/queryRainSolver.mjs';
+import { queryRainSolverByOrder } from '../lib/queryRainSolver.mjs';
 import { ethers } from 'ethers';
 
 const now = Math.floor(Date.now() / 1000);
@@ -435,7 +435,7 @@ const OrdersTable = ({ orders }) => {
 
     for (let i = 0; i < orders.length; i++) {
       let order = orders[i];
-      const orderLogs = await queryRainSolver(
+      const orderLogs = await queryRainSolverByOrder(
         networkConfig[order.network].chainId,
         order.orderHash,
       );

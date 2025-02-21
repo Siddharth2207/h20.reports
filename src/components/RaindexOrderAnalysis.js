@@ -385,6 +385,7 @@ const RaindexOrderAnalysis = () => {
     };
 
     const chartData = processData(orderData);
+
     const colors = generateColorPalette(2); // Generate 2 colors for active and inactive areas
 
     return (

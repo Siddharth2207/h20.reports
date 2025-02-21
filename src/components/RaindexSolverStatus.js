@@ -19,8 +19,7 @@ const OrdersTable = ({ orderSolverLogs }) => {
       <tbody>
         {orderSolverLogs?.map((order, index) => (
           <>
-           {
-            order.orderStatus === 'found opportunity' ? (
+            {order.orderStatus === 'found opportunity' ? (
               <tr key={index} className="border-t border-gray-300 align-top text-gray-700">
                 <td className="w-[100px] break-words px-4 py-3 text-center align-top text-sm">
                   {order.network}
@@ -56,7 +55,9 @@ const OrdersTable = ({ orderSolverLogs }) => {
                             </td>
                             <td
                               className={`w-[140px] break-words px-4 py-2 align-top font-semibold ${
-                                pairItem.orderStatus === 'found opportunity' ? 'text-green-500' : 'text-red-500'
+                                pairItem.orderStatus === 'found opportunity'
+                                  ? 'text-green-500'
+                                  : 'text-red-500'
                               }`}
                             >
                               {pairItem.orderStatus}
@@ -66,13 +67,12 @@ const OrdersTable = ({ orderSolverLogs }) => {
                                 href={pairItem.orderReason}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="text-blue-600 hover:underline break-all block truncate"
+                                className="block truncate break-all text-blue-600 hover:underline"
                                 title={pairItem.orderReason} // Shows full URL on hover
                               >
                                 {pairItem.orderReason}
                               </a>
                             </td>
-
                           </tr>
                         ))}
                       </tbody>
@@ -132,7 +132,9 @@ const OrdersTable = ({ orderSolverLogs }) => {
                             </td>
                             <td
                               className={`w-[140px] break-words px-4 py-2 align-top font-semibold ${
-                                pairItem.orderStatus === 'found opportunity' ? 'text-green-500' : 'text-red-500'
+                                pairItem.orderStatus === 'found opportunity'
+                                  ? 'text-green-500'
+                                  : 'text-red-500'
                               }`}
                             >
                               {pairItem.orderStatus}
@@ -147,10 +149,8 @@ const OrdersTable = ({ orderSolverLogs }) => {
                   </div>
                 </td>
               </tr>
-            )
-           }
+            )}
           </>
-          
         ))}
       </tbody>
     </table>
@@ -173,11 +173,11 @@ const RaindexSolverStatus = () => {
           const activeOrders = await fetchAndSetData(selectedToken);
           const fetchedSolverLogs = await fetchSolverLogs(activeOrders);
           setSolverLogs(fetchedSolverLogs);
-          setFilteredSolverLogs(fetchedSolverLogs)
+          setFilteredSolverLogs(fetchedSolverLogs);
         } catch (error) {
           console.error('Error fetching solver logs:', error);
         } finally {
-          setLoadingSolverLogs(false);  
+          setLoadingSolverLogs(false);
         }
       };
       fetchData();
@@ -185,18 +185,16 @@ const RaindexSolverStatus = () => {
     // eslint-disable-next-line
   }, [selectedToken]);
 
-
   useEffect(() => {
     if (selectedToken && solverLogs) {
-      if(selectedOrderHash === ''){
-        setFilteredSolverLogs(solverLogs)
-      }else{
-        setFilteredSolverLogs(solverLogs.filter(i => i.orderHash === selectedOrderHash))
+      if (selectedOrderHash === '') {
+        setFilteredSolverLogs(solverLogs);
+      } else {
+        setFilteredSolverLogs(solverLogs.filter((i) => i.orderHash === selectedOrderHash));
       }
     }
     // eslint-disable-next-line
   }, [selectedOrderHash]);
-
 
   const fetchAndSetData = async (selectedToken) => {
     const network = tokenConfig[selectedToken]?.network;
@@ -206,7 +204,7 @@ const RaindexSolverStatus = () => {
 
   const fetchSolverLogs = async (orders) => {
     orders = orders.filter((i) => i.active);
-    
+
     // Filter by selectedOrderHash if it exists
     if (selectedOrderHash) {
       orders = orders.filter((order) => order.orderHash === selectedOrderHash);
@@ -222,7 +220,7 @@ const RaindexSolverStatus = () => {
         10,
       );
       for (const orderLog of orderLogs) {
-        if(orderLog.status !== "found opportunity"){
+        if (orderLog.status !== 'found opportunity') {
           const hasDetails = orderLog.attemptDetails !== undefined;
           filteredData.push({
             network: tokenConfig[selectedToken].network,
@@ -237,31 +235,25 @@ const RaindexSolverStatus = () => {
               : 'No attempt details',
             timestamp: orderLog.timestamp,
           });
-        }else if(orderLog.status === "found opportunity"){
+        } else if (orderLog.status === 'found opportunity') {
           filteredData.push({
             network: tokenConfig[selectedToken].network,
             orderHash: order.orderHash,
             pair: orderLog.pair,
             orderStatus: orderLog.status,
             orderReason: orderLog.attemptDetails !== undefined ? orderLog.attemptDetails.txUrl : '',
-            timestamp: orderLog.timestamp
+            timestamp: orderLog.timestamp,
           });
         }
       }
     }
-    
+
     const groupedData = {};
-    
+
     for (const item of filteredData) {
-      const {orderStatus} = item;
-      if(orderStatus === "found opportunity"){
-        const {
-          network,
-          orderHash,
-          pair,
-          orderReason,
-          timestamp,
-        } = item;
+      const { orderStatus } = item;
+      if (orderStatus === 'found opportunity') {
+        const { network, orderHash, pair, orderReason, timestamp } = item;
         if (!groupedData[orderHash]) {
           groupedData[orderHash] = { orderHash, network, orderStatus, pairs: [] };
         }
@@ -271,7 +263,7 @@ const RaindexSolverStatus = () => {
           orderReason,
           timestamp,
         });
-      } else{
+      } else {
         const {
           orderHash,
           pair,

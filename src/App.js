@@ -6,7 +6,7 @@ import RaindexVisualization from './components/RaindexVisualization';
 import RaindexOrderList from './components/RaindexOrderList';
 import RaindexActivityList from './components/RaindexActivityList';
 import RaindexSolverStatus from './components/RaindexSolverStatus';
-import RaindexVaults from "./components/RaindexVaults";
+import RaindexVaults from './components/RaindexVaults';
 
 import './tailwind.css';
 

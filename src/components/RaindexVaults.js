@@ -1,13 +1,5 @@
-import {
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  BarChart,
-  Bar,
-} from "recharts";
-import React, { useState, useEffect } from "react";
+import { XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar } from 'recharts';
+import React, { useState, useEffect } from 'react';
 import {
   analyzeLiquidity,
   fetchAndFilterOrders,
@@ -16,18 +8,18 @@ import {
   tokenConfig,
   networkConfig,
   fetchAllPaginatedData,
-} from "raindex-reports";
-import TopBarWithFilters from "./TopBarWithFilters";
-import { PieChart, Pie, Cell } from "recharts";
-import { generateColorPalette } from "./RaindexMarketData";
-import { ethers } from "ethers";
+} from 'raindex-reports';
+import TopBarWithFilters from './TopBarWithFilters';
+import { PieChart, Pie, Cell } from 'recharts';
+import { generateColorPalette } from './RaindexMarketData';
+import { ethers } from 'ethers';
 
 const RaindexVaults = () => {
   const [initialized, setInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [customRange, setCustomRange] = useState({ from: null, to: null });
-  const [selectedToken, setSelectedToken] = useState("IOEN");
+  const [selectedToken, setSelectedToken] = useState('IOEN');
   const [allOrders, setAllOrders] = useState(null);
   const [orderVolumeData, setOrderVolumeData] = useState([]);
   const [orderVolumeStats, setOrderVolumeStats] = useState([]);
@@ -39,15 +31,12 @@ const RaindexVaults = () => {
   useEffect(() => {
     if (customRange.from && customRange.to && selectedToken) {
       const currentGracePeriod = 300;
-      const fromTimestamp = Math.floor(
-        new Date(customRange.from).getTime() / 1000
-      );
+      const fromTimestamp = Math.floor(new Date(customRange.from).getTime() / 1000);
       const toTimestamp =
-        Math.floor(new Date(customRange.to).getTime() / 1000) -
-        currentGracePeriod;
+        Math.floor(new Date(customRange.to).getTime() / 1000) - currentGracePeriod;
       fetchAndSetData(selectedToken, fromTimestamp, toTimestamp);
     }
-    // eslint-disable-next-line 
+    // eslint-disable-next-line
   }, [customRange, selectedToken]);
 
   function abbreviateHash(hash) {
@@ -57,18 +46,24 @@ const RaindexVaults = () => {
   const fetchAndSetData = async (token, fromTimestamp, toTimestamp) => {
     try {
       const network = tokenConfig[token]?.network;
-      const { filteredActiveOrders, filteredInActiveOrders } =
-        await fetchAndFilterOrders(token, network);
+      const { filteredActiveOrders, filteredInActiveOrders } = await fetchAndFilterOrders(
+        token,
+        network,
+      );
       const allOrders = filteredActiveOrders.concat(filteredInActiveOrders);
       setAllOrders(allOrders);
 
-      const { tradesAccordingToTimeStamp: allTradesArray } =
-        await analyzeLiquidity(network, token, fromTimestamp, toTimestamp);
+      const { tradesAccordingToTimeStamp: allTradesArray } = await analyzeLiquidity(
+        network,
+        token,
+        fromTimestamp,
+        toTimestamp,
+      );
       const raindexOrderWithTrades = await getTradesByTimeStamp(
         network,
         allOrders,
         fromTimestamp,
-        toTimestamp
+        toTimestamp,
       );
       prepareOrderVolumeData(allTradesArray, raindexOrderWithTrades);
 
@@ -80,24 +75,19 @@ const RaindexVaults = () => {
 
           // Collect only active orders
           const orders = new Set([
-            ...vault.ordersAsInput
-              .filter((order) => order.active)
-              .map((order) => order.id),
-            ...vault.ordersAsOutput
-              .filter((order) => order.active)
-              .map((order) => order.id),
+            ...vault.ordersAsInput.filter((order) => order.active).map((order) => order.id),
+            ...vault.ordersAsOutput.filter((order) => order.active).map((order) => order.id),
           ]);
 
           // Return only vaults that have active orders
           return orders.size > 0 ? { vaultId, orders: orders.size } : null;
         })
         .filter((vault) => vault !== null);
-      console.log("orderPerVaults : ", JSON.stringify(orderPerVaults));
+      console.log('orderPerVaults : ', JSON.stringify(orderPerVaults));
       setOrdersPerVault(orderPerVaults);
 
       const { tokenVaultSummary } = await tokenMetrics(filteredActiveOrders);
-      const { vaultData, vaultStats } =
-        prepareVaultDataAndStats(tokenVaultSummary);
+      const { vaultData, vaultStats } = prepareVaultDataAndStats(tokenVaultSummary);
       setVaultData(vaultData);
       setVaultStats(vaultStats);
 
@@ -118,24 +108,17 @@ const RaindexVaults = () => {
     xAxisLabel,
     yAxisLabel,
     xAxisFormatter,
-    yAxisFormatter
+    yAxisFormatter,
   ) => {
     const COLORS = generateColorPalette(barChartData.length);
 
     return (
-      <div className="bg-white rounded-lg shadow-lg p-5 flex flex-col justify-between">
-        <h3 className="text-lg font-semibold text-center mb-2 text-gray-800">
-          {title}
-        </h3>
-        {subtitle && (
-          <p className="text-sm text-center text-gray-600 mb-4">{subtitle}</p>
-        )}
+      <div className="flex flex-col justify-between rounded-lg bg-white p-5 shadow-lg">
+        <h3 className="mb-2 text-center text-lg font-semibold text-gray-800">{title}</h3>
+        {subtitle && <p className="mb-4 text-center text-sm text-gray-600">{subtitle}</p>}
 
         <ResponsiveContainer width="100%" height={400}>
-          <BarChart
-            data={barChartData}
-            margin={{ top: 20, right: 30, left: 20, bottom: 25 }}
-          >
+          <BarChart data={barChartData} margin={{ top: 20, right: 30, left: 20, bottom: 25 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey={dataKeyXAxis}
@@ -143,9 +126,9 @@ const RaindexVaults = () => {
               tickFormatter={xAxisFormatter}
               label={{
                 value: `${xAxisLabel}`,
-                position: "bottom",
+                position: 'bottom',
                 offset: 5, // Adjusted offset for better spacing
-                style: { fontSize: 14, fill: "#555" },
+                style: { fontSize: 14, fill: '#555' },
               }}
             />
             <YAxis
@@ -153,26 +136,18 @@ const RaindexVaults = () => {
               tickFormatter={yAxisFormatter}
               label={{
                 value: `${yAxisLabel}`,
-                position: "insideLeft",
+                position: 'insideLeft',
                 angle: -90,
                 dy: 50,
                 dx: -10,
-                style: { fontSize: 14, fill: "#555" },
+                style: { fontSize: 14, fill: '#555' },
               }}
             />
             <Tooltip />
 
-            <Bar
-              dataKey={dataKeyYAxis}
-              stackId="a"
-              name={xAxisLabel}
-              barSize={30}
-            >
+            <Bar dataKey={dataKeyYAxis} stackId="a" name={xAxisLabel} barSize={30}>
               {barChartData.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={COLORS[index % COLORS.length]}
-                />
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Bar>
           </BarChart>
@@ -182,8 +157,8 @@ const RaindexVaults = () => {
   };
 
   const prepareOrderVolumeData = (allTradesArray, raindexTradesArray) => {
-    console.log("allTradesArray : ", JSON.stringify(allTradesArray[0]));
-    console.log("raindexTradesArray : ", JSON.stringify(raindexTradesArray[0]));
+    console.log('allTradesArray : ', JSON.stringify(allTradesArray[0]));
+    console.log('raindexTradesArray : ', JSON.stringify(raindexTradesArray[0]));
 
     function enrichAndGroupByOrderHash(raindexTradesArray, allTradesArray) {
       // Step 1: Create a mapping for allTradesArray by transactionHash for efficient lookup
@@ -221,35 +196,24 @@ const RaindexVaults = () => {
           };
         }
 
-        grouped[orderHash].totalAmountInTokens += parseFloat(
-          amountInTokens || 0
-        );
+        grouped[orderHash].totalAmountInTokens += parseFloat(amountInTokens || 0);
         grouped[orderHash].totalAmountInUsd += parseFloat(amountInUsd || 0);
       });
 
       // Convert grouped object to an array and return
       return Object.values(grouped);
     }
-    const groupedTrades = enrichAndGroupByOrderHash(
-      raindexTradesArray,
-      allTradesArray
-    );
+    const groupedTrades = enrichAndGroupByOrderHash(raindexTradesArray, allTradesArray);
 
     // Step 2: Calculate total volume and percentages
-    const totalVolume = groupedTrades.reduce(
-      (sum, trade) => sum + trade.totalAmountInUsd,
-      0
-    );
+    const totalVolume = groupedTrades.reduce((sum, trade) => sum + trade.totalAmountInUsd, 0);
 
     // Add volumePercentage to groupedTrades and sort by totalVolumeUsd in descending order
     const sortedEntries = groupedTrades
       .map((trade) => ({
         ...trade,
         totalVolumeUsd: trade.totalAmountInUsd,
-        volumePercentage: (
-          (trade.totalAmountInUsd / totalVolume) *
-          100
-        ).toFixed(2),
+        volumePercentage: ((trade.totalAmountInUsd / totalVolume) * 100).toFixed(2),
       }))
       .sort((a, b) => b.totalVolumeUsd - a.totalVolumeUsd);
 
@@ -277,7 +241,7 @@ const RaindexVaults = () => {
     // Add "Others" category
     if (othersVolume > 0) {
       orderVolumeStats.push({
-        name: "Others",
+        name: 'Others',
         value: `$${othersVolume.toLocaleString(undefined, {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
@@ -297,15 +261,15 @@ const RaindexVaults = () => {
 
     const orderVolumeData = [
       {
-        name: "Volume",
+        name: 'Volume',
         ...volumeData,
         Others: othersVolume,
         total: totalVolume,
       },
     ];
 
-    console.log("orderVolumeData : ", orderVolumeData);
-    console.log("orderVolumeStats : ", orderVolumeStats);
+    console.log('orderVolumeData : ', orderVolumeData);
+    console.log('orderVolumeStats : ', orderVolumeStats);
 
     setOrderVolumeData(orderVolumeData);
     setOrderVolumeStats(orderVolumeStats);
@@ -359,20 +323,20 @@ const RaindexVaults = () => {
       networkConfig[tokenConfig[selectedToken].network].subgraphUrl,
       fetchVaultDetails,
       { tokenAddress: tokenConfig[selectedToken].address.toLowerCase() },
-      "vaults"
+      'vaults',
     );
 
     for (let i = 0; i < vaultsData.length; i++) {
       let vault = vaultsData[i];
-      console.log("vault id here : ", vault.id.toString());
+      console.log('vault id here : ', vault.id.toString());
       let vaultBalanceChangesData = await fetchAllPaginatedData(
         networkConfig[tokenConfig[selectedToken].network].subgraphUrl,
         vaultBalanceChanges,
         { vaultId: vault.id.toString() },
-        "vaultBalanceChanges"
+        'vaultBalanceChanges',
       );
-      vault["balanceChanges"] = vaultBalanceChangesData.sort(
-        (a, b) => parseInt(b.timestamp, 10) - parseInt(a.timestamp, 10)
+      vault['balanceChanges'] = vaultBalanceChangesData.sort(
+        (a, b) => parseInt(b.timestamp, 10) - parseInt(a.timestamp, 10),
       );
     }
 
@@ -387,9 +351,7 @@ const RaindexVaults = () => {
     orders.forEach((order) => {
       [...order.inputs, ...order.outputs].forEach((entry) => {
         const vaultId = entry.vaultId;
-        const balance = parseFloat(
-          ethers.utils.formatEther(entry.balance, entry.token.decimals)
-        );
+        const balance = parseFloat(ethers.utils.formatEther(entry.balance, entry.token.decimals));
 
         if (vaultBalances[vaultId]) {
           vaultBalances[vaultId].value += balance;
@@ -403,44 +365,31 @@ const RaindexVaults = () => {
     });
 
     // Sort by balance in descending order
-    const sortedVaults = Object.values(vaultBalances).sort(
-      (a, b) => b.value - a.value
-    );
+    const sortedVaults = Object.values(vaultBalances).sort((a, b) => b.value - a.value);
 
     // Keep top 5 vaults and group the rest into "Others"
     const displayedVaults = sortedVaults.slice(0, 5);
-    const othersValue = sortedVaults
-      .slice(5)
-      .reduce((sum, vault) => sum + vault.value, 0);
+    const othersValue = sortedVaults.slice(5).reduce((sum, vault) => sum + vault.value, 0);
 
     if (othersValue > 0) {
-      displayedVaults.push({ name: "Others", value: othersValue });
+      displayedVaults.push({ name: 'Others', value: othersValue });
     }
 
     // Calculate total value and percentages
-    const totalValue = displayedVaults.reduce(
-      (sum, vault) => sum + vault.value,
-      0
-    );
+    const totalValue = displayedVaults.reduce((sum, vault) => sum + vault.value, 0);
     const data = displayedVaults.map((vault) => ({
       ...vault,
       percentage: (vault.value / totalValue) * 100,
     }));
 
     // Generate colors for the bar chart
-    const COLORS = orders.map(
-      (_, index) => generateColorPalette(orders.length)[index]
-    );
+    const COLORS = orders.map((_, index) => generateColorPalette(orders.length)[index]);
 
     return (
-      <div className="bg-white rounded-lg shadow-lg p-5 flex flex-col justify-between">
+      <div className="flex flex-col justify-between rounded-lg bg-white p-5 shadow-lg">
         {/* Chart Title */}
-        <h3 className="text-lg font-semibold text-center mb-2 text-gray-800">
-          {title}
-        </h3>
-        {subtitle && (
-          <p className="text-sm text-center text-gray-600 mb-4">{subtitle}</p>
-        )}
+        <h3 className="mb-2 text-center text-lg font-semibold text-gray-800">{title}</h3>
+        {subtitle && <p className="mb-4 text-center text-sm text-gray-600">{subtitle}</p>}
 
         {/* Stacked Bar Chart */}
         <ResponsiveContainer width="100%" height={550}>
@@ -457,9 +406,9 @@ const RaindexVaults = () => {
               tickFormatter={(value) => `${formatValue(value)}`}
               label={{
                 value: `${tokenConfig[selectedToken].symbol} Balance`,
-                position: "insideBottom",
+                position: 'insideBottom',
                 offset: -5,
-                style: { fontSize: 14, fill: "#555" },
+                style: { fontSize: 14, fill: '#555' },
               }}
             />
 
@@ -468,12 +417,12 @@ const RaindexVaults = () => {
               type="category"
               tick={{ fontSize: 12 }}
               label={{
-                value: "Vault ID",
-                position: "insideLeft",
+                value: 'Vault ID',
+                position: 'insideLeft',
                 angle: -90, // Rotates the text vertically
                 dy: 50, // Adjust vertical position for better centering
                 dx: -10, // Adjusts left/right alignment
-                style: { fontSize: 14, fill: "#555" },
+                style: { fontSize: 14, fill: '#555' },
               }}
             />
 
@@ -482,10 +431,7 @@ const RaindexVaults = () => {
 
             <Bar dataKey="value" stackId="1" barSize={30}>
               {data.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={COLORS[index % COLORS.length]}
-                />
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Bar>
           </BarChart>
@@ -495,8 +441,8 @@ const RaindexVaults = () => {
   };
 
   const prepareVaultDataAndStats = (tokenVaultSummary) => {
-    console.log("prepareVaultDataAndStats");
-    console.log("tokenVaultSummary : ", JSON.stringify(tokenVaultSummary));
+    console.log('prepareVaultDataAndStats');
+    console.log('tokenVaultSummary : ', JSON.stringify(tokenVaultSummary));
 
     if (!tokenVaultSummary || tokenVaultSummary.length === 0)
       return { vaultData: [], vaultStats: [] };
@@ -509,24 +455,21 @@ const RaindexVaults = () => {
           result.total += token.totalTokenBalanceUsd;
           return result;
         },
-        { name: "Balance", total: 0 }
+        { name: 'Balance', total: 0 },
       ),
     ];
 
     const totalBalanceUsd = tokenVaultSummary.reduce(
       (sum, token) => sum + token.totalTokenBalanceUsd,
-      0
+      0,
     );
 
     const vaultStats = tokenVaultSummary.map((token) => {
-      const percentage = (
-        (token.totalTokenBalanceUsd / totalBalanceUsd) *
-        100
-      ).toFixed(2);
+      const percentage = ((token.totalTokenBalanceUsd / totalBalanceUsd) * 100).toFixed(2);
       return {
         name: token.symbol,
         value: `$${token.totalTokenBalanceUsd.toLocaleString()} - ${formatValue(
-          token.totalTokenBalance
+          token.totalTokenBalance,
         )} ${token.symbol}`,
         percentage: percentage,
       };
@@ -538,29 +481,21 @@ const RaindexVaults = () => {
   const renderPieChart = (title, stats, colorKeys, subtitle) => {
     const data = stats.map((item) => ({
       ...item,
-      value: parseFloat(item.value.replace(/[^0-9.-]+/g, "")),
+      value: parseFloat(item.value.replace(/[^0-9.-]+/g, '')),
       percentage: parseFloat(item.percentage),
     }));
 
     // Ensure total value and colors match
-    const totalVaultValue = formatValue(
-      data.reduce((sum, item) => sum + item.value, 0)
-    );
-    const COLORS = colorKeys.map(
-      (_, index) => generateColorPalette(colorKeys.length)[index]
-    );
+    const totalVaultValue = formatValue(data.reduce((sum, item) => sum + item.value, 0));
+    const COLORS = colorKeys.map((_, index) => generateColorPalette(colorKeys.length)[index]);
 
     // console.log("Pie Chart Data:", data); // Debugging
     // console.log("COLORS:", COLORS); // Debugging
 
     return (
-      <div className="bg-white rounded-lg shadow-lg p-5 flex flex-col justify-between">
-        <h3 className="text-lg font-semibold text-center mb-2 text-gray-800">
-          {title}
-        </h3>
-        {subtitle && (
-          <p className="text-sm text-center text-gray-600 mb-4">{subtitle}</p>
-        )}
+      <div className="flex flex-col justify-between rounded-lg bg-white p-5 shadow-lg">
+        <h3 className="mb-2 text-center text-lg font-semibold text-gray-800">{title}</h3>
+        {subtitle && <p className="mb-4 text-center text-sm text-gray-600">{subtitle}</p>}
 
         {/* Pie Chart */}
         <ResponsiveContainer width="100%" height={300}>
@@ -574,34 +509,29 @@ const RaindexVaults = () => {
               fill="#8884d8"
               paddingAngle={5}
               dataKey="value"
-              label={({ name, percentage }) =>
-                `${name}: ${percentage.toFixed(2)}%`
-              }
+              label={({ name, percentage }) => `${name}: ${percentage.toFixed(2)}%`}
             >
               {data.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={COLORS[index % COLORS.length]}
-                />
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>
-            <text x="50%" y="50%" dy={8} textAnchor="middle" fill={"#0A1320"}>
+            <text x="50%" y="50%" dy={8} textAnchor="middle" fill={'#0A1320'}>
               Total: ${totalVaultValue}
             </text>
             <Tooltip />
           </PieChart>
         </ResponsiveContainer>
 
-        <div className="space-y-3 mt-4">
+        <div className="mt-4 space-y-3">
           {stats.map((stat, index) => (
             <div key={index}>
-              <div className="flex justify-between mb-1">
+              <div className="mb-1 flex justify-between">
                 <span className="font-bold" style={{ color: COLORS[index] }}>
                   {stat.name}
                 </span>
                 <span>{stat.value}</span>
               </div>
-              <div className="w-full h-2 bg-gray-200 rounded">
+              <div className="h-2 w-full rounded bg-gray-200">
                 <div
                   className="h-full rounded"
                   style={{
@@ -638,42 +568,36 @@ const RaindexVaults = () => {
     return <div>Error: {error}</div>;
   }
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="min-h-screen bg-gray-50 p-6">
       <TopBarWithFilters
         onApplyFilters={handleFiltersApply}
         tokenOptions={Object.keys(tokenConfig)} // Add your token options here
       />
       {initialized ? (
         loading ? (
-          <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
-            <div className="spinner w-10 h-10 border-4 border-gray-300 border-t-indigo-500 rounded-full animate-spin"></div>
+          <div className="flex h-screen flex-col items-center justify-center bg-gray-100">
+            <div className="spinner h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-indigo-500"></div>
             <p>Loading...</p>
           </div>
         ) : (
-          <div className="max-w-screen-3xl mx-auto p-8 bg-gray-100 rounded-lg shadow-lg">
-            <div className="p-6 bg-gray-100 border-b border-gray-300">
-              <div className="flex justify-between items-start">
+          <div className="max-w-screen-3xl mx-auto rounded-lg bg-gray-100 p-8 shadow-lg">
+            <div className="border-b border-gray-300 bg-gray-100 p-6">
+              <div className="flex items-start justify-between">
                 {/* Title Section */}
                 <h1 className="text-2xl font-bold text-gray-800">
                   {selectedToken.toUpperCase()} Market Analysis Report
                 </h1>
 
                 {/* Info Section */}
-                <div className="text-right space-y-4">
+                <div className="space-y-4 text-right">
                   <div>
-                    <span className="block font-semibold text-gray-600">
-                      Report generated at:
-                    </span>
-                    <p className="text-gray-700">
-                      {new Date().toLocaleString()}
-                    </p>
+                    <span className="block font-semibold text-gray-600">Report generated at:</span>
+                    <p className="text-gray-700">{new Date().toLocaleString()}</p>
                   </div>
                   <div>
-                    <span className="block font-semibold text-gray-600">
-                      Report duration:
-                    </span>
+                    <span className="block font-semibold text-gray-600">Report duration:</span>
                     <p className="text-gray-700">
-                      {new Date(customRange.from).toLocaleString()} -{" "}
+                      {new Date(customRange.from).toLocaleString()} -{' '}
                       {new Date(customRange.to).toLocaleString()}
                     </p>
                   </div>
@@ -681,14 +605,14 @@ const RaindexVaults = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-5 md:grid-cols-3 sm:grid-cols-1">
+            <div className="grid grid-cols-3 gap-5 sm:grid-cols-1 md:grid-cols-3">
               {orderVolumeData.length > 0 &&
                 orderVolumeStats.length > 0 &&
                 renderPieChart(
-                  "Volume by Order for Duration",
+                  'Volume by Order for Duration',
                   orderVolumeStats,
                   orderVolumeStats.map((item) => item.name),
-                  ``
+                  ``,
                 )}
 
               {allOrders &&
@@ -696,9 +620,7 @@ const RaindexVaults = () => {
                 renderVaultBarChart(
                   allOrders,
                   `${tokenConfig[selectedToken.toUpperCase()].symbol} Vaults`,
-                  `Vault distribution for ${
-                    tokenConfig[selectedToken.toUpperCase()].symbol
-                  }`
+                  `Vault distribution for ${tokenConfig[selectedToken.toUpperCase()].symbol}`,
                 )}
               {vaultData.length > 0 &&
                 vaultStats.length > 0 &&
@@ -706,39 +628,37 @@ const RaindexVaults = () => {
                   `Vault Distribution for ${tokenConfig[selectedToken].symbol} orders`,
                   vaultStats,
                   vaultStats.map((item) => item.name),
-                  ``
+                  ``,
                 )}
               {tokenVaultSummary &&
                 StackedBarChart(
                   `Total Value Locked`,
                   `Token vault balances for ${tokenConfig[selectedToken].symbol} orders`,
                   tokenVaultSummary,
-                  "symbol",
-                  "totalTokenBalanceUsd",
-                  "Tokens",
-                  "Amount USD",
+                  'symbol',
+                  'totalTokenBalanceUsd',
+                  'Tokens',
+                  'Amount USD',
                   ``,
-                  (value) => `$${formatValue(value)}`
+                  (value) => `$${formatValue(value)}`,
                 )}
               {ordersPerVault &&
                 StackedBarChart(
                   `Orders Per Vaults`,
                   `Orders per vaults for ${tokenConfig[selectedToken].symbol}`,
                   ordersPerVault,
-                  "vaultId",
-                  "orders",
-                  "Vault Ids",
-                  "Orders Count",
+                  'vaultId',
+                  'orders',
+                  'Vault Ids',
+                  'Orders Count',
                   (value) => `${value.slice(0, 2)}..${value.slice(-2)}`,
-                  (value) => `${formatValue(value)}`
+                  (value) => `${formatValue(value)}`,
                 )}
             </div>
-            <div className="max-w-screen-3xl mx-auto p-8 bg-gray-100 rounded-lg shadow-lg"></div>
-            <div className="mt-8 bg-gray-100 text-gray-700 text-base p-6 rounded-lg">
-              <h3 className="text-left font-semibold text-lg mb-4">
-                Data Sources
-              </h3>
-              <ul className="list-disc list-inside space-y-2">
+            <div className="max-w-screen-3xl mx-auto rounded-lg bg-gray-100 p-8 shadow-lg"></div>
+            <div className="mt-8 rounded-lg bg-gray-100 p-6 text-base text-gray-700">
+              <h3 className="mb-4 text-left text-lg font-semibold">Data Sources</h3>
+              <ul className="list-inside list-disc space-y-2">
                 <li>
                   <a
                     href="https://docs.envio.dev/docs/HyperSync/overview"
@@ -752,9 +672,7 @@ const RaindexVaults = () => {
                 <li>
                   <a
                     href={
-                      networkConfig[
-                        tokenConfig[selectedToken.toUpperCase()]?.network
-                      ].subgraphUrl
+                      networkConfig[tokenConfig[selectedToken.toUpperCase()]?.network].subgraphUrl
                     }
                     target="_blank"
                     rel="noopener noreferrer"
@@ -768,12 +686,10 @@ const RaindexVaults = () => {
           </div>
         )
       ) : (
-        <div className="flex flex-col items-center justify-center bg-gray-100 rounded-lg shadow-md p-6 text-center">
+        <div className="flex flex-col items-center justify-center rounded-lg bg-gray-100 p-6 text-center shadow-md">
           <p className="text-gray-700">
-            Please select a{" "}
-            <span className="text-blue-900 font-medium">date range</span> and a{" "}
-            <span className="text-blue-900 font-medium">token</span> to filter
-            the data.
+            Please select a <span className="font-medium text-blue-900">date range</span> and a{' '}
+            <span className="font-medium text-blue-900">token</span> to filter the data.
           </p>
         </div>
       )}

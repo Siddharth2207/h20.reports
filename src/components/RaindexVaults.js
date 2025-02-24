@@ -8,7 +8,7 @@ import {
   tokenConfig,
   networkConfig,
   fetchAllPaginatedData,
-  getTokenPriceUsd
+  getTokenPriceUsd,
 } from 'raindex-reports';
 import TopBarWithFilters from './TopBarWithFilters';
 import { PieChart, Pie, Cell } from 'recharts';
@@ -32,7 +32,6 @@ const RaindexVaults = () => {
   const [vaultBalancesData, setVaultBalancesData] = useState([]);
   const [vaultVolumeData, setVaultVolumeData] = useState([]);
   const [tokenPrice, setTokenPrice] = useState(null);
-
 
   useEffect(() => {
     if (customRange.from && customRange.to && selectedToken) {
@@ -75,14 +74,17 @@ const RaindexVaults = () => {
 
       const vaultBalanceData = await prepareVaultBalanceData();
 
-      const vaultVolumeData = prepareVaultVolumeData(vaultBalanceData)
+      const vaultVolumeData = prepareVaultVolumeData(vaultBalanceData);
       setVaultVolumeData(vaultVolumeData);
-     
-      const vaultBalancesData = prepareVaultBalancesData(allOrders)
+
+      const vaultBalancesData = prepareVaultBalancesData(allOrders);
       setVaultBalancesData(vaultBalancesData);
 
-      const tokenPrice = await getTokenPriceUsd(tokenConfig[selectedToken]?.address, tokenConfig[selectedToken]?.symbol);
-      setTokenPrice(tokenPrice)
+      const tokenPrice = await getTokenPriceUsd(
+        tokenConfig[selectedToken]?.address,
+        tokenConfig[selectedToken]?.symbol,
+      );
+      setTokenPrice(tokenPrice);
 
       const orderPerVaults = vaultBalanceData
         .map((vault) => {
@@ -171,33 +173,41 @@ const RaindexVaults = () => {
   };
 
   const renderVaultHealthMetrics = () => {
-    const totalVaultBalance = vaultBalancesData.reduce((sum, vault) => sum + vault.value, 0)
-    const totalVaultVolume = vaultVolumeData.reduce((sum, vault) => sum + vault.value, 0)
+    const totalVaultBalance = vaultBalancesData.reduce((sum, vault) => sum + vault.value, 0);
+    const totalVaultVolume = vaultVolumeData.reduce((sum, vault) => sum + vault.value, 0);
     const activeRatio = ((totalVaultBalance / totalVaultVolume) * 100).toFixed(2);
 
     return (
       <div className="flex flex-col justify-between rounded-lg bg-white p-5 shadow-lg">
-        <h3 className="mb-2 text-center text-lg font-semibold text-gray-800">Vault Health Metrics</h3>
-  
+        <h3 className="mb-2 text-center text-lg font-semibold text-gray-800">
+          Vault Health Metrics
+        </h3>
+
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-blue-50 p-5 rounded-lg text-center">
-            <p className="text-gray-600 text-sm">Total Orders</p>
-            <p className="text-blue-600 text-2xl font-semibold">{allOrders.length}</p>
+          <div className="rounded-lg bg-blue-50 p-5 text-center">
+            <p className="text-sm text-gray-600">Total Orders</p>
+            <p className="text-2xl font-semibold text-blue-600">{allOrders.length}</p>
           </div>
-  
-          <div className="bg-green-50 p-5 rounded-lg text-center">
-            <p className="text-gray-600 text-sm">Total Tokens {tokenConfig[selectedToken]?.symbol}</p>
-            <p className="text-green-600 text-2xl font-semibold">{formatValue(totalVaultBalance)}</p>
+
+          <div className="rounded-lg bg-green-50 p-5 text-center">
+            <p className="text-sm text-gray-600">
+              Total Tokens {tokenConfig[selectedToken]?.symbol}
+            </p>
+            <p className="text-2xl font-semibold text-green-600">
+              {formatValue(totalVaultBalance)}
+            </p>
           </div>
-  
-          <div className="bg-purple-50 p-5 rounded-lg text-center">
-            <p className="text-gray-600 text-sm">Total Value (USD)</p>
-            <p className="text-purple-600 text-2xl font-semibold">${formatValue(totalVaultBalance * tokenPrice.currentPrice)}</p>
+
+          <div className="rounded-lg bg-purple-50 p-5 text-center">
+            <p className="text-sm text-gray-600">Total Value (USD)</p>
+            <p className="text-2xl font-semibold text-purple-600">
+              ${formatValue(totalVaultBalance * tokenPrice.currentPrice)}
+            </p>
           </div>
-  
-          <div className="bg-indigo-50 p-5 rounded-lg text-center">
-            <p className="text-gray-600 text-sm">Active Ratio</p>
-            <p className="text-indigo-600 text-2xl font-semibold">{activeRatio}%</p>
+
+          <div className="rounded-lg bg-indigo-50 p-5 text-center">
+            <p className="text-sm text-gray-600">Active Ratio</p>
+            <p className="text-2xl font-semibold text-indigo-600">{activeRatio}%</p>
           </div>
         </div>
       </div>
@@ -210,15 +220,18 @@ const RaindexVaults = () => {
 
     // Sum up all amounts in balanceChanges for each vault
     vaultBalanceData.forEach((vault) => {
-        const vaultId = vault.vaultId;
-        const totalBalanceChange = vault.balanceChanges.reduce((sum, change) => sum + (Math.abs(parseFloat(change.amount)) || 0), 0);
-      
-        if (totalBalanceChange > 0) {
-            vaultBalances[vaultId] = {
-                name: `Vault ${vaultId.slice(0, 4)}..`,
-                value: totalBalanceChange / 10 ** vault.token.decimals, // Convert from smallest unit
-            };
-        }
+      const vaultId = vault.vaultId;
+      const totalBalanceChange = vault.balanceChanges.reduce(
+        (sum, change) => sum + (Math.abs(parseFloat(change.amount)) || 0),
+        0,
+      );
+
+      if (totalBalanceChange > 0) {
+        vaultBalances[vaultId] = {
+          name: `Vault ${vaultId.slice(0, 4)}..`,
+          value: totalBalanceChange / 10 ** vault.token.decimals, // Convert from smallest unit
+        };
+      }
     });
 
     // Sort by balance in descending order
@@ -229,71 +242,71 @@ const RaindexVaults = () => {
     const othersValue = sortedVaults.slice(5).reduce((sum, vault) => sum + vault.value, 0);
 
     if (othersValue > 0) {
-        displayedVaults.push({ name: 'Others', value: othersValue });
+      displayedVaults.push({ name: 'Others', value: othersValue });
     }
 
     // Calculate total value and percentages
     const totalValue = displayedVaults.reduce((sum, vault) => sum + vault.value, 0);
     const data = displayedVaults.map((vault) => ({
-        ...vault,
-        percentage: (vault.value / totalValue) * 100,
+      ...vault,
+      percentage: (vault.value / totalValue) * 100,
     }));
 
-    return data
-  }
+    return data;
+  };
 
   const prepareVaultBalancesData = (orders) => {
-      
-      // Prepare data for vault balances
-      const vaultBalances = {};
+    // Prepare data for vault balances
+    const vaultBalances = {};
 
-      // Aggregate balances from inputs and outputs
-      orders.forEach((order) => {
-        [...order.inputs, ...order.outputs].forEach((entry) => {
-          const vaultId = entry.id;
-          const balance = parseFloat(ethers.utils.formatEther(entry.balance, entry.token.decimals)).toFixed(8);
+    // Aggregate balances from inputs and outputs
+    orders.forEach((order) => {
+      [...order.inputs, ...order.outputs].forEach((entry) => {
+        const vaultId = entry.id;
+        const balance = parseFloat(
+          ethers.utils.formatEther(entry.balance, entry.token.decimals),
+        ).toFixed(8);
 
-          if (!vaultBalances[vaultId]) {
-            vaultBalances[vaultId] = {
-              name: `Vault ${entry.vaultId.slice(0, 4)}..`,
-              values: new Set(), // Store unique balances
-            };
-          }
+        if (!vaultBalances[vaultId]) {
+          vaultBalances[vaultId] = {
+            name: `Vault ${entry.vaultId.slice(0, 4)}..`,
+            values: new Set(), // Store unique balances
+          };
+        }
 
-          vaultBalances[vaultId].values.add(balance);
-        });
+        vaultBalances[vaultId].values.add(balance);
       });
+    });
 
-      // Convert Sets to unique aggregated values
-      Object.keys(vaultBalances).forEach((vaultId) => {
-        const uniqueBalances = Array.from(vaultBalances[vaultId].values).map(Number); // Convert back to numbers
-        vaultBalances[vaultId].value = uniqueBalances.reduce((sum, val) => sum + val, 0); // Sum unique balances
-        delete vaultBalances[vaultId].values; // Remove the Set after aggregation
-      });
+    // Convert Sets to unique aggregated values
+    Object.keys(vaultBalances).forEach((vaultId) => {
+      const uniqueBalances = Array.from(vaultBalances[vaultId].values).map(Number); // Convert back to numbers
+      vaultBalances[vaultId].value = uniqueBalances.reduce((sum, val) => sum + val, 0); // Sum unique balances
+      delete vaultBalances[vaultId].values; // Remove the Set after aggregation
+    });
 
-      // Sort by balance in descending order
-      const sortedVaults = Object.values(vaultBalances).sort((a, b) => b.value - a.value);
+    // Sort by balance in descending order
+    const sortedVaults = Object.values(vaultBalances).sort((a, b) => b.value - a.value);
 
-      // Keep top 5 vaults and group the rest into "Others"
-      const displayedVaults = sortedVaults.slice(0, 5);
-      const othersValue = sortedVaults.slice(5).reduce((sum, vault) => sum + vault.value, 0);
+    // Keep top 5 vaults and group the rest into "Others"
+    const displayedVaults = sortedVaults.slice(0, 5);
+    const othersValue = sortedVaults.slice(5).reduce((sum, vault) => sum + vault.value, 0);
 
-      if (othersValue > 0) {
-        displayedVaults.push({ name: 'Others', value: othersValue });
-      }
+    if (othersValue > 0) {
+      displayedVaults.push({ name: 'Others', value: othersValue });
+    }
 
-      // Calculate total value and percentages
-      const totalValue = displayedVaults.reduce((sum, vault) => sum + vault.value, 0);
-      const data = displayedVaults.map((vault) => ({
-        ...vault,
-        percentage: (vault.value / totalValue) * 100,
-      }));
+    // Calculate total value and percentages
+    const totalValue = displayedVaults.reduce((sum, vault) => sum + vault.value, 0);
+    const data = displayedVaults.map((vault) => ({
+      ...vault,
+      percentage: (vault.value / totalValue) * 100,
+    }));
 
-      return data
-  }
+    return data;
+  };
 
   const prepareOrderVolumeData = (allTradesArray, raindexTradesArray) => {
-
     function enrichAndGroupByOrderHash(raindexTradesArray, allTradesArray) {
       // Step 1: Create a mapping for allTradesArray by transactionHash for efficient lookup
       const tradeMap = allTradesArray.reduce((map, trade) => {
@@ -402,7 +415,6 @@ const RaindexVaults = () => {
       },
     ];
 
-
     setOrderVolumeData(orderVolumeData);
     setOrderVolumeStats(orderVolumeStats);
   };
@@ -481,10 +493,16 @@ const RaindexVaults = () => {
 
     return vaultsData;
   };
-  
 
-  const renderVaultBarChart = (data, title, subtitle, xAxisLabel, yAxisLabel, xAxisFormatter, yAxisFormatter) => {
-
+  const renderVaultBarChart = (
+    data,
+    title,
+    subtitle,
+    xAxisLabel,
+    yAxisLabel,
+    xAxisFormatter,
+    yAxisFormatter,
+  ) => {
     // Generate colors for the bar chart
     const COLORS = data.map((_, index) => generateColorPalette(data.length)[index]);
 
@@ -530,7 +548,7 @@ const RaindexVaults = () => {
               }}
             />
 
-            <Tooltip formatter={xAxisFormatter}/>
+            <Tooltip formatter={xAxisFormatter} />
             {/* <Legend /> */}
 
             <Bar dataKey="value" stackId="1" barSize={30}>
@@ -545,7 +563,6 @@ const RaindexVaults = () => {
   };
 
   const prepareVaultDataAndStats = (tokenVaultSummary) => {
-
     if (!tokenVaultSummary || tokenVaultSummary.length === 0)
       return { vaultData: [], vaultStats: [] };
 
@@ -722,20 +739,24 @@ const RaindexVaults = () => {
                   `Vault distribution for ${tokenConfig[selectedToken.toUpperCase()].symbol}`,
                   `${tokenConfig[selectedToken].symbol} Balance`,
                   `Vault ID`,
-                  (value) => `${formatValue(value)} ${tokenConfig[selectedToken.toUpperCase()].symbol}`,
-                  ``
+                  (value) =>
+                    `${formatValue(value)} ${tokenConfig[selectedToken.toUpperCase()].symbol}`,
+                  ``,
                 )}
-              
+
               {vaultVolumeData &&
                 vaultVolumeData.length > 0 &&
                 renderVaultBarChart(
                   vaultVolumeData,
                   `${tokenConfig[selectedToken.toUpperCase()].symbol} Vault Volume`,
-                  `Volume distribution for ${tokenConfig[selectedToken.toUpperCase()].symbol} vaults`,
+                  `Volume distribution for ${
+                    tokenConfig[selectedToken.toUpperCase()].symbol
+                  } vaults`,
                   `${tokenConfig[selectedToken].symbol} Volume`,
                   `Vault ID`,
-                  (value) => `${formatValue(value)} ${tokenConfig[selectedToken.toUpperCase()].symbol}`,
-                  ``
+                  (value) =>
+                    `${formatValue(value)} ${tokenConfig[selectedToken.toUpperCase()].symbol}`,
+                  ``,
                 )}
 
               {vaultData.length > 0 &&
@@ -770,9 +791,7 @@ const RaindexVaults = () => {
                   (value) => `${value.slice(0, 2)}..${value.slice(-2)}`,
                   (value) => `${formatValue(value)}`,
                 )}
-                {
-                  renderVaultHealthMetrics()
-                }
+              {renderVaultHealthMetrics()}
             </div>
             <div className="max-w-screen-3xl mx-auto rounded-lg bg-gray-100 p-8 shadow-lg"></div>
             <div className="mt-8 rounded-lg bg-gray-100 p-6 text-base text-gray-700">

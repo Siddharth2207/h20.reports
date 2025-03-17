@@ -5,7 +5,7 @@ import { formatTimestamp } from './RaindexOrderList';
 
 const OrdersTable = ({ orderSolverLogs }) => {
   const getOrderLink = (orderHash, orderNetwork) =>
-    `https://raindex.finance/my-strategies/${orderHash}-${orderNetwork}`;
+    `https://v2.raindex.finance/orders/${orderNetwork}-${orderHash}`;
 
   return (
     <table className="w-full table-auto border-collapse border border-gray-200">

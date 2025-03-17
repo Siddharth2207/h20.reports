@@ -363,7 +363,7 @@ const fetchDataForElapsedTime = async (elapsedTime) => {
 };
 
 const getOrderLink = (orderHash, orderNetwork) =>
-  `https://raindex.finance/my-strategies/${orderHash}-${orderNetwork}`;
+  `https://v2.raindex.finance/orders/${orderNetwork}-${orderHash}`;
 
 export {
   formatTimestamp,

@@ -794,7 +794,7 @@ const RaindexOrderAnalysis = () => {
                     <text>Others</text>
                   ) : (
                     <a
-                      href={`https://raindex.finance/my-strategies/${stat.name}-${tokenConfig[selectedToken]?.network}`}
+                      href={`https://v2.raindex.finance/orders/${tokenConfig[selectedToken]?.network}-${stat.name}`}
                       target="_blank"
                       rel="noreferrer"
                     >

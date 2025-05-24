@@ -10,13 +10,13 @@ export const QuoteConfig = TakeOrderConfigV3;
 // Configuration for networks and subgraphs
 export const config = {
   networks: {
-    flare: { rpc: 'https://rpc.ankr.com/flare', chainId: 14, currency: 'FLR' },
-    base: { rpc: 'https://rpc.ankr.com/base', chainId: 8453, currency: 'ETH' },
+    flare: { rpc: 'https://flare.rpc.thirdweb.com', chainId: 14, currency: 'FLR' },
+    base: { rpc: 'https://base-rpc.publicnode.com', chainId: 8453, currency: 'ETH' },
     sepolia: { rpc: 'https://1rpc.io/sepolia', chainId: 11155111, currency: 'ETH' },
-    polygon: { rpc: 'https://rpc.ankr.com/polygon', chainId: 137, currency: 'POL' },
-    arbitrum: { rpc: 'https://rpc.ankr.com/arbitrum', chainId: 42161, currency: 'ETH' },
-    bsc: { rpc: 'https://rpc.ankr.com/bsc', chainId: 56, currency: 'BNB' },
-    mainnet: { rpc: 'https://rpc.ankr.com/eth', chainId: 1, currency: 'ETH' },
+    polygon: { rpc: 'https://polygon-rpc.com', chainId: 137, currency: 'POL' },
+    arbitrum: { rpc: 'https://arbitrum-one-rpc.publicnode.com', chainId: 42161, currency: 'ETH' },
+    bsc: { rpc: 'https://bsc-dataseed.bnbchain.org', chainId: 56, currency: 'BNB' },
+    mainnet: { rpc: 'https://ethereum-rpc.publicnode.com', chainId: 1, currency: 'ETH' },
   },
   subgraphs: {
     base: 'https://api.goldsky.com/api/public/project_clv14x04y9kzi01saerx7bxpg/subgraphs/ob4-base/2024-12-13-9c39/gn',
@@ -39,6 +39,12 @@ export const baseTokenConfig = {
     network: 'arbitrum',
     address: '0x94fcd9c18f99538c0f7c61c5500ca79f0d5c4dab',
   },
+  TIBBIR: {
+    symbol: 'TIBBIR',
+    decimals: 18,
+    network: 'base',
+    address: '0xa4a2e2ca3fbfe21aed83471d28b6f65a233c6e00',
+  },
   IOEN: {
     symbol: 'IOEN',
     decimals: 18,
@@ -57,11 +63,35 @@ export const baseTokenConfig = {
     network: 'polygon',
     address: '0x3c59798620e5fec0ae6df1a19c6454094572ab92',
   },
-  MNW_ETHEREUM: {
+  MNW_MAINNET: {
     symbol: 'MNW',
     decimals: 18,
     network: 'mainnet',
     address: '0xd3e4ba569045546d09cf021ecc5dfe42b1d7f6e4',
+  },
+  WETH_MAINNET: {
+    symbol: 'WETH',
+    network: 'mainnet',
+    decimals: 18,
+    address: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+  },
+  WETH_BASE: {
+    symbol: 'WETH',
+    network: 'base',
+    decimals: 18,
+    address: '0x4200000000000000000000000000000000000006',
+  },
+  USDT_MAINNET: {
+    symbol: 'USDT',
+    network: 'mainnet',
+    decimals: 6,
+    address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+  },
+  USDC_MAINNET: {
+    symbol: 'USDC',
+    network: 'mainnet',
+    decimals: 6,
+    address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
   },
   WPOL: {
     symbol: 'WPOL',
@@ -193,11 +223,23 @@ export const quoteTokenConfig = {
     decimals: 18,
     address: '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270',
   },
-  ETHEREUM_WETH: {
+  WETH_MAINNET: {
     symbol: 'WETH',
     network: 'mainnet',
     decimals: 18,
     address: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+  },
+  USDT_MAINNET: {
+    symbol: 'USDT',
+    network: 'mainnet',
+    decimals: 6,
+    address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+  },
+  USDC_MAINNET: {
+    symbol: 'USDC',
+    network: 'mainnet',
+    decimals: 6,
+    address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
   },
   POLYGON_WETH: {
     symbol: 'WETH',

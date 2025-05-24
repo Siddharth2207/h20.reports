@@ -238,8 +238,7 @@ const RaindexVisualization = () => {
       )
       .sort((a, b) => a.price - b.price);
 
-    const getOrderLink = (orderHash) =>
-      `https://v2.raindex.finance/orders/${network}-${orderHash}`;
+    const getOrderLink = (orderHash) => `https://v2.raindex.finance/orders/${network}-${orderHash}`;
 
     return (
       <div className="flex flex-col gap-5">

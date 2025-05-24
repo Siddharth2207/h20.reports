@@ -16,13 +16,13 @@ export const config = {
     polygon: { rpc: 'https://polygon-rpc.com', chainId: 137, currency: 'POL' },
     arbitrum: { rpc: 'https://arbitrum-one-rpc.publicnode.com', chainId: 42161, currency: 'ETH' },
     bsc: { rpc: 'https://bsc-dataseed.bnbchain.org', chainId: 56, currency: 'BNB' },
-    mainnet: { rpc: 'https://ethereum-rpc.publicnode.com', chainId: 1, currency: 'ETH' },
+    ethereum: { rpc: 'https://ethereum-rpc.publicnode.com', chainId: 1, currency: 'ETH' },
   },
   subgraphs: {
     base: 'https://api.goldsky.com/api/public/project_clv14x04y9kzi01saerx7bxpg/subgraphs/ob4-base/2024-12-13-9c39/gn',
     polygon:
       'https://api.goldsky.com/api/public/project_clv14x04y9kzi01saerx7bxpg/subgraphs/ob4-matic/2024-12-13-d2b4/gn',
-    mainnet:
+    ethereum:
       'https://api.goldsky.com/api/public/project_clv14x04y9kzi01saerx7bxpg/subgraphs/ob4-mainnet/2024-12-13-7f22/gn',
     arbitrum:
       'https://api.goldsky.com/api/public/project_clv14x04y9kzi01saerx7bxpg/subgraphs/ob4-arbitrum-one/2024-12-13-7435/gn',
@@ -63,15 +63,15 @@ export const baseTokenConfig = {
     network: 'polygon',
     address: '0x3c59798620e5fec0ae6df1a19c6454094572ab92',
   },
-  MNW_MAINNET: {
+  MNW_ETHEREUM: {
     symbol: 'MNW',
     decimals: 18,
-    network: 'mainnet',
+    network: 'ethereum',
     address: '0xd3e4ba569045546d09cf021ecc5dfe42b1d7f6e4',
   },
-  WETH_MAINNET: {
+  WETH_ETHEREUM: {
     symbol: 'WETH',
-    network: 'mainnet',
+    network: 'ethereum',
     decimals: 18,
     address: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
   },
@@ -81,15 +81,15 @@ export const baseTokenConfig = {
     decimals: 18,
     address: '0x4200000000000000000000000000000000000006',
   },
-  USDT_MAINNET: {
+  USDT_ETHEREUM: {
     symbol: 'USDT',
-    network: 'mainnet',
+    network: 'ethereum',
     decimals: 6,
     address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
   },
-  USDC_MAINNET: {
+  USDC_ETHEREUM: {
     symbol: 'USDC',
-    network: 'mainnet',
+    network: 'ethereum',
     decimals: 6,
     address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
   },
@@ -150,13 +150,13 @@ export const baseTokenConfig = {
   },
   PAI: {
     symbol: 'PAI',
-    network: 'mainnet',
+    network: 'ethereum',
     decimals: 18,
     address: '0x13e4b8cffe704d3de6f19e52b201d92c21ec18bd',
   },
   LOCK: {
     symbol: 'LOCK',
-    network: 'mainnet',
+    network: 'ethereum',
     decimals: 18,
     address: '0x922d8563631b03c2c4cf817f4d18f6883aba0109',
   },
@@ -223,21 +223,21 @@ export const quoteTokenConfig = {
     decimals: 18,
     address: '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270',
   },
-  WETH_MAINNET: {
+  WETH_ETHEREUM: {
     symbol: 'WETH',
-    network: 'mainnet',
+    network: 'ethereum',
     decimals: 18,
     address: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
   },
-  USDT_MAINNET: {
+  USDT_ETHEREUM: {
     symbol: 'USDT',
-    network: 'mainnet',
+    network: 'ethereum',
     decimals: 6,
     address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
   },
-  USDC_MAINNET: {
+  USDC_ETHEREUM: {
     symbol: 'USDC',
-    network: 'mainnet',
+    network: 'ethereum',
     decimals: 6,
     address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
   },

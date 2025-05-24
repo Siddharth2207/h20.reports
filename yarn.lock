@@ -8443,10 +8443,10 @@ raf@^3.4.1:
   dependencies:
     performance-now "^2.1.0"
 
-raindex-reports@=1.0.35:
-  version "1.0.35"
-  resolved "https://registry.yarnpkg.com/raindex-reports/-/raindex-reports-1.0.35.tgz#2bc904ccf399d18214458acbe1a247f1189e3fb1"
-  integrity sha512-OO+dljeRobI87F4cmUOPEXn9ttetaZGg/D7j09PI9t9uHUrohHvPVTIUMwj6luQsPuJigXkEXDbctEufOfZb0Q==
+raindex-reports@=1.0.36:
+  version "1.0.36"
+  resolved "https://registry.yarnpkg.com/raindex-reports/-/raindex-reports-1.0.36.tgz#793569e2dd9d838262b4ea527c3ae663643a332e"
+  integrity sha512-M9rmiP4psWHtnlfrnYvznFKjurdL/dP87qkMUuUKTR22D5hX/f5gNEUAl+vDei0NJGc0cLq8N2j1gTFmDWydpA==
   dependencies:
     axios "^1.7.9"
     ethers "=5.7.0"

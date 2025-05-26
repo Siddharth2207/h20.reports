@@ -45,6 +45,12 @@ export const baseTokenConfig = {
     network: 'base',
     address: '0xa4a2e2ca3fbfe21aed83471d28b6f65a233c6e00',
   },
+  VIRTUAL: {
+    symbol: "VIRTUAL",
+    decimals: 18,
+    network: "base",
+    address: "0x0b3e328455c4059eeb9e3f84b5543f74e24e7e1b"
+  },
   IOEN: {
     symbol: 'IOEN',
     decimals: 18,
@@ -174,6 +180,12 @@ export const quoteTokenConfig = {
     network: 'flare',
     decimals: 6,
     address: '0xfe2907dfa8db6e320cdbf45f0aa888f6135ec4f8',
+  },
+  VIRTUAL: {
+    symbol: "VIRTUAL",
+    decimals: 18,
+    network: "base",
+    address: "0x0b3e328455c4059eeb9e3f84b5543f74e24e7e1b"
   },
   FLARE_USDCe: {
     symbol: 'USDC.e',
